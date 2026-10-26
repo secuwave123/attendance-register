@@ -53,7 +53,11 @@
     <button class="big" id="checkBtn">출석하기</button>
     <div class="msg" id="msg"></div>
     <button class="big" id="kakaoBtn" style="display:none;margin-top:12px;background:#FEE500;color:#191919">💬 오픈채팅방에 알리기</button>
-    <p class="sub" id="kakaoHint" style="display:none;text-align:center;margin:8px 0 0">출석 문구가 복사됐어요. 채팅방에서 길게 눌러 붙여넣기 → 전송</p>
+    <div id="kakaoHint" style="display:none;margin-top:10px">
+      <p class="sub" style="text-align:center;margin:0 0 6px">아래 문구가 복사돼요. 채팅방 입력창을 길게 눌러 <b>붙여넣기</b> → 전송</p>
+      <input id="kakaoBox" readonly style="text-align:center;font-weight:bold;background:#fffbe6">
+      <p class="sub" id="copyState" style="text-align:center;margin:6px 0 0"></p>
+    </div>
   </div>
 
   <div class="card" id="placeCard">
@@ -191,19 +195,39 @@ async function checkIn(auto=false){
 
 // ===== 카톡 출석 알림 =====
 let kakaoText = '';
+let copyFailedOnce = false;
 function showKakao(rec){
   const d = new Date();
   kakaoText = `7️⃣ ${rec.name}님 출석 (${pad(d.getHours())}:${pad(d.getMinutes())})`;
-  copyText(kakaoText);
+  $('kakaoBox').value = kakaoText;
   $('kakaoBtn').style.display = 'block';
   $('kakaoHint').style.display = 'block';
 }
-function copyText(t){
-  try{ navigator.clipboard.writeText(t); }catch(e){}
+// 복사: 구형 방식(카톡 내장 브라우저용) + 최신 방식 둘 다 시도
+function copyLegacy(t){
+  const box = $('kakaoBox');
+  box.value = t;
+  box.removeAttribute('readonly');
+  box.focus(); box.select(); box.setSelectionRange(0, t.length);
+  let ok = false;
+  try{ ok = document.execCommand('copy'); }catch(e){}
+  box.setAttribute('readonly','');
+  box.blur();
+  return ok;
 }
+async function copyText(t){
+  let ok = copyLegacy(t);
+  try{ await navigator.clipboard.writeText(t); ok = true; }catch(e){}
+  return ok;
+}
+$('kakaoBox').addEventListener('click', () => { $('kakaoBox').select(); });
 $('kakaoBtn').addEventListener('click', async () => {
-  try{ await navigator.clipboard.writeText(kakaoText); }catch(e){}
-  location.href = OPENCHAT_URL;
+  const ok = await copyText(kakaoText);
+  $('copyState').textContent = ok
+    ? '✅ 복사 완료! 채팅방으로 이동합니다…'
+    : '⚠️ 자동 복사가 막혔어요. 위 문구를 길게 눌러 복사한 뒤, 버튼을 한 번 더 누르면 채팅방이 열려요.';
+  if(!ok && !copyFailedOnce){ copyFailedOnce = true; $('kakaoBox').select(); return; }
+  setTimeout(() => { location.href = OPENCHAT_URL; }, 700);
 });
 
 $('checkBtn').addEventListener('click', () => checkIn(false));
