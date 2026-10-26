@@ -60,6 +60,14 @@
     </div>
   </div>
 
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <b>🎱 지금 당구장에 온 사람 <span class="sub">(최근 12시간)</span></b>
+      <button class="btn" id="liveRefresh">새로고침</button>
+    </div>
+    <div id="liveList"><p class="sub">불러오는 중…</p></div>
+  </div>
+
   <div class="card" id="placeCard">
     <details>
       <summary>⚙️ 출석 장소 설정 (선택)</summary>
@@ -207,8 +215,36 @@ function sendNtfy(rec, now){
       message: `${rec.name}님 출석 (${pad(now.getHours())}:${pad(now.getMinutes())})${range}`,
       tags: [rec.inRange===false ? 'warning' : 'white_check_mark']
     })
-  }).catch(()=>{});
+  }).then(() => setTimeout(loadLive, 1500)).catch(()=>{});
 }
+
+// ===== 지금 온 사람 (ntfy 최근 12시간 기록) =====
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function loadLive(){
+  if(!NTFY_TOPIC){ $('liveList').innerHTML = ''; return; }
+  try{
+    const txt = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=12h`).then(r => r.text());
+    const people = new Map();
+    txt.split('\n').forEach(line => {
+      if(!line.trim()) return;
+      let ev; try{ ev = JSON.parse(line); }catch(e){ return; }
+      if(ev.event !== 'message' || !ev.message) return;
+      const m = ev.message.match(/^(.+?)님 출석 \((\d{2}:\d{2})\)(.*)$/);
+      if(!m) return;
+      const prev = people.get(m[1]);
+      if(!prev || ev.time > prev.t) people.set(m[1], {t: ev.time, hm: m[2], extra: m[3].replace(/^ · /,'')});
+    });
+    const list = [...people.entries()].sort((a,b) => b[1].t - a[1].t);
+    $('liveList').innerHTML = list.length
+      ? list.map(([n,v]) => `<div class="item"><b>${esc(n)}</b> <span class="sub">${esc(v.hm)}</span>${v.extra ? ` <span class="${v.extra.includes('밖')?'no':'ok'}">· ${esc(v.extra)}</span>` : ''}</div>`).join('')
+      : '<p class="sub">아직 온 사람이 없어요.</p>';
+  }catch(e){
+    $('liveList').innerHTML = '<p class="sub">목록을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</p>';
+  }
+}
+$('liveRefresh').addEventListener('click', loadLive);
+loadLive();
+setInterval(loadLive, 60000);
 
 // ===== 카톡 출석 알림 =====
 let kakaoText = '';
