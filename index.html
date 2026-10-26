@@ -31,7 +31,16 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🎱 자동출석체크기</h1>
+  <h1 style="display:flex;align-items:center;justify-content:center;gap:8px">
+    <svg width="34" height="34" viewBox="0 0 100 100" aria-label="7번 당구공">
+      <defs><radialGradient id="b7" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#c0392b"/><stop offset="1" stop-color="#6e1414"/></radialGradient></defs>
+      <circle cx="50" cy="50" r="48" fill="url(#b7)"/>
+      <circle cx="50" cy="50" r="22" fill="#fff"/>
+      <text x="50" y="60" text-anchor="middle" font-size="30" font-weight="bold" font-family="Arial,sans-serif" fill="#111">7</text>
+      <ellipse cx="34" cy="24" rx="12" ry="6" fill="#fff" opacity=".35"/>
+    </svg>
+    자동출석체크기
+  </h1>
   <p class="sub" style="text-align:center;margin:-10px 0 14px">빌리어드테라피 · 대구 중구 명덕로35길 99, 3층</p>
 
   <div class="card">
@@ -43,6 +52,8 @@
     <div style="height:12px"></div>
     <button class="big" id="checkBtn">출석하기</button>
     <div class="msg" id="msg"></div>
+    <button class="big" id="kakaoBtn" style="display:none;margin-top:12px;background:#FEE500;color:#191919">💬 오픈채팅방에 알리기</button>
+    <p class="sub" id="kakaoHint" style="display:none;text-align:center;margin:8px 0 0">출석 문구가 복사됐어요. 채팅방에서 길게 눌러 붙여넣기 → 전송</p>
   </div>
 
   <div class="card" id="placeCard">
@@ -81,6 +92,7 @@ const FIXED_PLACE = {
   lng: 128.58968609,                    // 경도
   radius: 50                            // 허용 반경(m)
 };
+const OPENCHAT_URL = 'https://open.kakao.com/o/gnKCHmCe';   // 출석 알림 보낼 오픈채팅방
 // =====================================================
 
 const $ = id => document.getElementById(id);
@@ -155,7 +167,7 @@ async function checkIn(auto=false){
   if(!name){ if(!auto){ showMsg('이름을 먼저 입력해 주세요.','no'); $('name').focus(); } return; }
   const today = new Date().toLocaleDateString('ko-KR');
   if(records.some(r => r.name===name && r.day===today)){
-    if(auto){ showMsg(`✅ ${name}님은 오늘 이미 출석했습니다.`,'ok'); return; }
+    if(auto){ showMsg(`✅ ${name}님은 오늘 이미 출석했습니다.`,'ok'); showKakao({name}); return; }
     if(!confirm('오늘 이미 출석했습니다. 한 번 더 기록할까요?')) return;
   }
   if($('checkBtn').disabled) return;
@@ -172,9 +184,27 @@ async function checkIn(auto=false){
     records.push(rec); store.set('att_records', records); render();
     if(rec.inRange===false) showMsg(`출석 기록됨 · ${FIXED_PLACE.name}에서 ${rec.dist}m 떨어져 있습니다.`,'no');
     else showMsg(`✅ ${name}님 출석 완료 (${pad(now.getHours())}:${pad(now.getMinutes())})`,'ok');
+    showKakao(rec);
   }catch(e){ showMsg(e.message,'no'); }
   $('checkBtn').disabled = false;
 }
+
+// ===== 카톡 출석 알림 =====
+let kakaoText = '';
+function showKakao(rec){
+  const d = new Date();
+  kakaoText = `7️⃣ ${rec.name}님 출석 (${pad(d.getHours())}:${pad(d.getMinutes())})`;
+  copyText(kakaoText);
+  $('kakaoBtn').style.display = 'block';
+  $('kakaoHint').style.display = 'block';
+}
+function copyText(t){
+  try{ navigator.clipboard.writeText(t); }catch(e){}
+}
+$('kakaoBtn').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText(kakaoText); }catch(e){}
+  location.href = OPENCHAT_URL;
+});
 
 $('checkBtn').addEventListener('click', () => checkIn(false));
 $('name').addEventListener('keydown', e => {
