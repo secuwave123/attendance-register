@@ -2,322 +2,709 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>자동출석체크기</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b4a37">
+<title>빌리어드테라피 출석</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&display=swap">
 <style>
-  :root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#6b7280;--main:#2563eb;--ok:#16a34a;--no:#dc2626;--line:#e5e7eb}
+  :root{
+    --felt:#0f5f47; --felt-deep:#0b4a37; --felt-dark:#06352a;
+    --wood:#6b3a20; --wood-deep:#3d1d0e; --brass:#d9c08a;
+    --paper:#faf7f0; --ink:#17221d; --sub:#5b6b63; --line:#e3ddcf;
+    --accent:#2f7fd1; --accent-deep:#1f63ad;
+    --ok:#17703d; --ok-bg:#e6f3ec; --warn:#b3261e; --warn-bg:#fbeceb;
+    --mint:#bfe3d3; --mint-dim:#9fc4b4;
+    --r-s:10px; --r-m:14px; --r-l:20px;
+    --tilt:30deg;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:"Malgun Gothic","맑은 고딕",sans-serif;font-size:16px}
-  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 40px}
-  h1{font-size:22px;margin:4px 0 16px;text-align:center}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
-  label{font-size:14px;color:var(--sub);display:block;margin-bottom:6px}
-  input{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px;font-family:inherit}
-  .clock{text-align:center;font-size:30px;font-weight:bold;margin:6px 0 2px}
-  .date{text-align:center;color:var(--sub);font-size:14px;margin-bottom:14px}
-  .big{width:100%;padding:18px;font-size:20px;font-weight:bold;color:#fff;background:var(--main);border:0;border-radius:12px;cursor:pointer}
-  .big:disabled{opacity:.6}
-  .btn{padding:9px 12px;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-family:inherit}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .msg{margin-top:12px;font-size:15px;text-align:center;min-height:20px}
-  .ok{color:var(--ok)} .no{color:var(--no)}
-  .item{border-top:1px solid var(--line);padding:10px 0;font-size:14px}
-  .item:first-child{border-top:0}
-  .item b{font-size:15px}
-  .item a{color:var(--main);text-decoration:none;margin-right:10px}
-  .sub{color:var(--sub);font-size:13px}
-  details summary{cursor:pointer;font-weight:bold}
+  html{background:var(--felt-deep)}
+  body{
+    margin:0;color:var(--ink);
+    font-family:'Pretendard Variable','Pretendard','Malgun Gothic','맑은 고딕',sans-serif;
+    word-break:keep-all;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased;
+    background:radial-gradient(140% 900px at 50% -10%, #177255 0%, var(--felt) 42%, var(--felt-deep) 100%) no-repeat var(--felt-deep);
+    min-height:100vh;
+  }
+  h1,h2,h3,.status{text-wrap:pretty}
+  button{font:inherit;cursor:pointer;border:0;color:inherit}
+  button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #ffd54a;outline-offset:2px}
+  button:disabled{opacity:.6;cursor:default}
+  .wrap{position:relative;max-width:460px;margin:0 auto;padding:20px 16px calc(40px + env(safe-area-inset-bottom))}
+
+  /* ---------- 상단 ---------- */
+  .top{display:flex;align-items:center;gap:12px;color:#fff;margin:4px 2px 18px}
+  .top svg{flex:none;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35))}
+  .brand{font-family:'Black Han Sans','Pretendard Variable',sans-serif;font-weight:800;font-size:26px;line-height:1.05;letter-spacing:.3px}
+  .addr{font-size:13px;color:var(--mint);margin-top:4px}
+  .addr a{color:var(--mint);text-underline-offset:3px}
+  .clock{margin-left:auto;text-align:right}
+  .clock b{display:block;font-size:20px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+  .clock span{font-size:12px;color:var(--mint)}
+
+  /* ---------- 내 출석 패널 ---------- */
+  .panel{background:var(--paper);border-radius:var(--r-l);padding:18px;box-shadow:0 18px 40px -16px rgba(0,0,0,.5)}
+  .me{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .me input{flex:1;min-width:0;height:52px;font:inherit;font-size:18px;font-weight:700;padding:0 14px;border:1.5px solid var(--line);border-radius:var(--r-m);background:#fff;color:var(--ink)}
+  .me input::placeholder{font-weight:500;color:#9aa8a1}
+  .me input:focus{outline:none;border-color:var(--accent)}
+  .charbtn{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;background:transparent;padding:0;min-width:52px}
+  .charbtn .orb{width:46px;height:46px}
+  .charbtn .orb em{inset:11px;font-size:16px}
+  .charbtn small{font-size:12px;color:var(--accent-deep);font-weight:700}
+
+  .status{display:flex;align-items:flex-start;gap:8px;font-size:15px;line-height:1.5;margin:0 0 14px;color:var(--sub)}
+  .status .dot{width:8px;height:8px;border-radius:50%;background:#b8c6bf;flex:none;margin-top:7px}
+  .status.ok{color:var(--ok);background:var(--ok-bg);border-radius:var(--r-m);padding:12px 14px;font-weight:700}
+  .status.ok .dot{display:none}
+  .status.warn{color:var(--warn);background:var(--warn-bg);border-radius:var(--r-m);padding:12px 14px}
+  .status.warn .dot{background:var(--warn)}
+  .status.busy .dot{background:var(--accent);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+
+  .cta{width:100%;min-height:58px;display:flex;align-items:center;justify-content:center;gap:10px;border-radius:var(--r-m);
+       background:var(--accent);color:#fff;font-size:19px;font-weight:800;letter-spacing:-.3px;box-shadow:0 8px 18px -6px rgba(31,99,173,.6)}
+  .cta:active{transform:scale(.985)}
+  .cta.leave{background:#fff;color:var(--ink);border:1.5px solid var(--line);box-shadow:none;font-size:16px;min-height:50px;margin-top:10px}
+  .spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;animation:rot .8s linear infinite;display:none}
+  .cta.loading .spin{display:inline-block}
+  @keyframes rot{to{transform:rotate(360deg)}}
+
+  .plan{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+  .plan h3{margin:0 0 10px;font-size:15px;font-weight:700;letter-spacing:-.2px}
+  .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .chip{position:relative;min-height:44px;border-radius:var(--r-s);background:#fff;border:1.5px solid var(--line);font-size:14px;font-weight:700;
+        display:flex;align-items:center;justify-content:center;color:var(--ink)}
+  .chip[aria-pressed="true"]{background:var(--felt-deep);border-color:var(--felt-deep);color:#fff}
+  .chip input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+  .planrow{display:flex;gap:8px;margin-top:10px}
+  .planrow .go{flex:1;min-height:50px;border-radius:var(--r-m);background:var(--felt-deep);color:#fff;font-weight:700;font-size:15px}
+  .planrow .cancel{min-height:50px;padding:0 14px;border-radius:var(--r-m);background:#fff;color:var(--warn);font-weight:700;font-size:14px;border:1.5px solid #ecd0cc}
+
+  .kakao{display:none}
+  .kakao button{width:100%;min-height:52px;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:var(--r-m);
+                background:#fff;border:1.5px solid var(--line);color:var(--ink);font-weight:800;font-size:16px}
+  .kakao button svg{flex:none}
+  .kakao p{margin:8px 0 0;font-size:13px;color:var(--sub);text-align:center}
+  .kakao input{width:100%;margin-top:8px;font:inherit;font-size:14px;text-align:center;padding:10px;border:1px dashed var(--line);border-radius:var(--r-s);background:#fffdf3;color:var(--ink)}
+
+  /* ---------- 지금 당구장 ---------- */
+  .board{margin-top:32px}
+  .board-head{display:flex;align-items:flex-end;justify-content:space-between;color:#fff;margin:0 4px 6px}
+  .ttl{display:flex;flex-direction:column;gap:5px}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--mint)}
+  .live i{width:7px;height:7px;border-radius:50%;background:#5ff0a8;animation:live 2.4s infinite}
+  @keyframes live{0%{box-shadow:0 0 0 0 rgba(95,240,168,.55)}70%{box-shadow:0 0 0 8px rgba(95,240,168,0)}100%{box-shadow:0 0 0 0 rgba(95,240,168,0)}}
+  .board-head h2{margin:0;font-size:24px;font-weight:800;letter-spacing:-.6px;line-height:1.1}
+  .count{line-height:1}
+  .count b{font-size:42px;font-weight:800;letter-spacing:-1.5px;font-variant-numeric:tabular-nums}
+  .count span{font-size:14px;font-weight:600;color:var(--mint);margin-left:3px}
+
+  /* 3D 무대 */
+  .scene{position:relative;perspective:1000px;perspective-origin:50% -20%;padding:18px 4px 36px}
+  .scene::after{content:"";position:absolute;left:8%;right:8%;bottom:8px;height:40px;border-radius:50%;
+                background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent);filter:blur(6px);z-index:0}
+  .table{position:relative;z-index:1;padding:12px;border-radius:var(--r-l);transform:rotateX(var(--tilt));transform-style:preserve-3d;
+         background:repeating-linear-gradient(91deg,rgba(255,255,255,.04) 0 2px,transparent 2px 8px),linear-gradient(165deg,#86492a,var(--wood) 45%,var(--wood-deep));
+         box-shadow:inset 0 1px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.35)}
+  /* 앞면 두께 */
+  .table::after{content:"";position:absolute;left:14px;right:14px;top:100%;height:26px;transform-origin:top;transform:rotateX(-90deg);
+                background:linear-gradient(180deg,#4a2412,#2a1208);border-radius:0 0 8px 8px}
+  .cloth{position:relative;aspect-ratio:1.32;border-radius:8px;transform-style:preserve-3d;
+         background:radial-gradient(55% 50% at 50% 45%,rgba(255,255,255,.12),transparent 70%),radial-gradient(130% 120% at 50% 50%,#1c8d68 0%,#106b4f 55%,#0a4a37 100%);
+         box-shadow:inset 0 0 0 1px rgba(0,0,0,.35), inset 0 12px 26px rgba(0,0,0,.35)}
+  .cloth::before{content:"";position:absolute;inset:0;border-radius:8px;pointer-events:none;opacity:.2;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .cloth.many{aspect-ratio:auto;min-height:240px;padding:34px 10px 22px}
+  .cloth .head{position:absolute;left:0;right:0;top:24%;height:1px;background:rgba(255,255,255,.1)}
+  .cloth .spot{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.35);left:50%;top:24%;transform:translate(-50%,-50%)}
+  .pocket{position:absolute;width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 50% 62%,#000 55%,#1b0e06);box-shadow:0 0 0 2px rgba(217,192,138,.4)}
+  .pocket.tl{top:4px;left:4px}.pocket.tr{top:4px;right:4px}.pocket.bl{bottom:4px;left:4px}.pocket.br{bottom:4px;right:4px}
+  .pocket.ml{top:50%;left:2px;margin-top:-8px}.pocket.mr{top:50%;right:2px;margin-top:-8px}
+  .diamonds i{position:absolute;width:4px;height:4px;background:var(--brass);transform:translate(-50%,-50%) rotate(45deg);box-shadow:0 0 2px rgba(0,0,0,.4)}
+
+  .balls{position:absolute;inset:0;transform-style:preserve-3d}
+  .cloth.many .balls{position:relative;inset:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:22px 6px;justify-items:center}
+  .shadow{position:absolute;width:46px;height:14px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.55),transparent);transform:translate(-50%,-50%)}
+  .ball{position:absolute;display:flex;flex-direction:column-reverse;align-items:center;gap:6px;width:96px;
+        transform:translate(-50%,-100%) rotateX(calc(-1 * var(--tilt)));transform-origin:50% 100%}
+  .cloth.many .ball{position:relative;transform:rotateX(calc(-1 * var(--tilt)));transform-origin:50% 100%}
+  .cloth.many .shadow{display:none}
+  .orb{position:relative;width:56px;height:56px;border-radius:50%;flex:none;
+       background:radial-gradient(circle at 33% 27%, color-mix(in srgb,var(--c) 45%,#fff) 0%, var(--c) 40%, color-mix(in srgb,var(--c) 60%,#000) 100%);
+       box-shadow:inset -4px -6px 10px rgba(0,0,0,.25), 0 3px 4px rgba(0,0,0,.3)}
+  .orb.stripe{background:radial-gradient(circle at 33% 27%,rgba(255,255,255,.6),transparent 40%),
+       radial-gradient(circle at 70% 75%,rgba(0,0,0,.22),transparent 55%),
+       linear-gradient(180deg,#f6f1e4 0 24%,var(--c) 24% 76%,#e6dfcc 76%)}
+  .orb::after{content:"";position:absolute;left:11px;top:7px;width:15px;height:8px;border-radius:50%;background:rgba(255,255,255,.65);transform:rotate(-28deg)}
+  .orb em{position:absolute;inset:14px;border-radius:50%;background:#fbf8f0;display:flex;align-items:center;justify-content:center;
+          font-style:normal;font-weight:800;font-size:20px;line-height:1;color:var(--ink);box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+  .tag{display:flex;flex-direction:column;align-items:center;padding:4px 10px 5px;border-radius:999px;background:rgba(3,26,19,.72);border:1px solid rgba(255,255,255,.14);box-shadow:0 4px 10px rgba(0,0,0,.3)}
+  .tag b{font-size:13px;color:#fff;font-weight:700;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.2px}
+  .tag small{font-size:11px;color:#d6efe4;font-variant-numeric:tabular-nums}
+  .ball.new .orb{animation:drop .65s cubic-bezier(.2,1.5,.4,1)}
+  @keyframes drop{from{transform:translateY(-36px) scale(.5);opacity:0}to{transform:none;opacity:1}}
+
+  .notice{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;color:#eef8f3;
+          transform:rotateX(calc(-1 * var(--tilt)));transform-origin:50% 60%}
+  .notice .cue{width:38px;height:38px;border-radius:50%;background:radial-gradient(circle at 34% 28%,#fff,#ebe6d8 60%,#b9b29f);box-shadow:0 8px 10px -4px rgba(0,0,0,.5)}
+  .notice b{font-size:17px;font-weight:700;letter-spacing:-.3px}
+  .notice span{font-size:13px;color:#cfeadf;line-height:1.5}
+  .notice button{margin-top:4px;min-height:44px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:14px;font-weight:600;border:1px solid rgba(255,255,255,.22)}
+  .skel{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.12);animation:pulse 1.2s infinite}
+
+  .soon{margin-top:8px;background:rgba(3,24,18,.4);border:1px solid rgba(255,255,255,.08);border-radius:var(--r-l);padding:16px}
+  .soon-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;color:#fff}
+  .soon-head h3{margin:0;font-size:16px;font-weight:700;letter-spacing:-.3px}
+  .soon-head small{font-size:13px;color:var(--mint)}
+  .soon ul{list-style:none;margin:0;padding:0}
+  .soon li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid rgba(255,255,255,.08);color:#fff;font-size:15px;font-weight:600}
+  .soon li:first-child{border-top:0}
+  .soon .orb.mini{width:32px;height:32px}
+  .soon .orb.mini::after{left:6px;top:4px;width:8px;height:4px}
+  .soon .orb.mini em{inset:7px;font-size:12px}
+  .soon li time{margin-left:auto;padding:5px 11px;border-radius:999px;background:rgba(217,192,138,.18);color:#f3dcab;font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+  .soon .none{color:var(--mint);font-size:14px;font-weight:500}
+  .foot{display:flex;justify-content:space-between;align-items:center;color:var(--mint-dim);font-size:12px;margin:8px 4px 0}
+  .refresh{min-height:44px;padding:0 8px;background:transparent;color:var(--mint);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+
+  /* ---------- 캐릭터 창 ---------- */
+  dialog.sheet{border:0;padding:0;width:min(460px,100%);max-width:100%;margin:auto auto 0;border-radius:var(--r-l) var(--r-l) 0 0;background:var(--paper);color:var(--ink)}
+  dialog.sheet[open]{animation:up .28s cubic-bezier(.2,.8,.2,1)}
+  @keyframes up{from{transform:translateY(100%)}}
+  dialog.sheet::backdrop{background:rgba(3,20,14,.6)}
+  .sheet .in{padding:10px 18px calc(18px + env(safe-area-inset-bottom))}
+  .grip{width:40px;height:4px;border-radius:2px;background:#d6cfbf;margin:0 auto 12px}
+  .sheet-head{display:flex;align-items:center;justify-content:space-between}
+  .sheet h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.4px}
+  .xbtn{min-width:44px;min-height:44px;border-radius:var(--r-s);background:transparent;font-size:15px;font-weight:700;color:var(--sub)}
+  .preview{display:flex;align-items:center;gap:14px;margin-top:6px}
+  .preview .orb{width:64px;height:64px}
+  .preview .orb em{inset:16px;font-size:22px}
+  .sheet h3{margin:16px 0 10px;font-size:14px;color:var(--sub);font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .grid button{aspect-ratio:1;min-height:44px;border-radius:50%;background:transparent;padding:0;display:flex;align-items:center;justify-content:center}
+  .grid .orb.pick{width:86%;height:86%}
+  .grid .orb.pick em{inset:27%;font-size:11px}
+  .grid button[aria-pressed="true"]{box-shadow:0 0 0 2px var(--paper),0 0 0 4px var(--accent)}
+  .emo{grid-template-columns:repeat(6,1fr)}
+  .emo button{border-radius:var(--r-m);background:#fff;border:1.5px solid var(--line);font-size:24px}
+  .emo button.txt{flex-direction:column;font-size:13px;font-weight:800;line-height:1.1}
+  .emo button.txt small{font-size:10px;font-weight:600;color:var(--sub)}
+  .sheet .done{width:100%;min-height:54px;margin-top:18px;border-radius:var(--r-m);background:var(--accent);color:#fff;font-weight:800;font-size:17px}
+
+  /* ---------- 내 기록 ---------- */
+  details.mine{margin-top:22px;background:rgba(3,24,18,.3);border-radius:var(--r-m);color:#e7f2ed}
+  details.mine summary{min-height:48px;display:flex;align-items:center;padding:0 16px;cursor:pointer;font-weight:700;font-size:15px}
+  .mine .inner{padding:0 16px 16px}
+  .mine .rec{border-top:1px solid rgba(255,255,255,.1);padding:10px 0;font-size:14px;display:flex;justify-content:space-between;gap:10px}
+  .mine .rec a{color:#a9d4ff}
+  .mine .tools{display:flex;gap:8px;margin-top:10px}
+  .mine .tools button{min-height:44px;padding:0 14px;border-radius:var(--r-s);background:rgba(255,255,255,.12);color:#fff;font-size:14px}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1 style="display:flex;align-items:center;justify-content:center;gap:8px">
-    <svg width="34" height="34" viewBox="0 0 100 100" aria-label="7번 당구공">
-      <defs><radialGradient id="b7" cx="35%" cy="30%" r="70%"><stop offset="0" stop-color="#c0392b"/><stop offset="1" stop-color="#6e1414"/></radialGradient></defs>
+
+  <header class="top">
+    <svg width="46" height="46" viewBox="0 0 100 100" role="img" aria-label="7번 당구공">
+      <defs><radialGradient id="b7" cx="35%" cy="30%" r="72%"><stop offset="0" stop-color="#c0392b"/><stop offset="1" stop-color="#5e1016"/></radialGradient></defs>
       <circle cx="50" cy="50" r="48" fill="url(#b7)"/>
-      <circle cx="50" cy="50" r="22" fill="#fff"/>
-      <text x="50" y="60" text-anchor="middle" font-size="30" font-weight="bold" font-family="Arial,sans-serif" fill="#111">7</text>
-      <ellipse cx="34" cy="24" rx="12" ry="6" fill="#fff" opacity=".35"/>
+      <circle cx="50" cy="50" r="22" fill="#fbf8f0"/>
+      <text x="50" y="61" text-anchor="middle" font-size="31" font-weight="bold" font-family="Arial,sans-serif" fill="#17221d">7</text>
+      <ellipse cx="33" cy="23" rx="12" ry="6" fill="#fff" opacity=".4" transform="rotate(-25 33 23)"/>
     </svg>
-    자동출석체크기
-  </h1>
-  <p class="sub" style="text-align:center;margin:-10px 0 14px">빌리어드테라피 · 대구 중구 명덕로35길 99, 3층</p>
-
-  <div class="card">
-    <div class="clock" id="clock">--:--:--</div>
-    <div class="date" id="date"></div>
-    <label for="name">이름</label>
-    <input id="name" placeholder="이름 입력 후 엔터 → 자동 출석" enterkeyhint="go" autocomplete="name">
-    <p class="sub" style="margin:6px 0 0">처음 한 번만 이름을 입력하면, 다음부터는 앱을 열기만 해도 자동 출석됩니다.</p>
-    <div style="height:12px"></div>
-    <button class="big" id="checkBtn">출석하기</button>
-    <div class="msg" id="msg"></div>
-    <button class="big" id="kakaoBtn" style="display:none;margin-top:12px;background:#FEE500;color:#191919">💬 카톡방에 도착 알리기</button>
-    <div id="kakaoHint" style="display:none;margin-top:10px">
-      <p class="sub" style="text-align:center;margin:0 0 6px">버튼 → <b>카카오톡</b> → <b>오픈채팅방 선택</b> → 전송</p>
-      <input id="kakaoBox" readonly style="text-align:center;font-weight:bold;background:#fffbe6">
-      <p class="sub" id="copyState" style="text-align:center;margin:6px 0 0"></p>
+    <div>
+      <div class="brand">빌리어드테라피</div>
+      <div class="addr"><a href="https://map.kakao.com/link/to/빌리어드테라피,35.86105197,128.58968609" target="_blank" rel="noopener">대구 중구 명덕로35길 99, 3층</a></div>
     </div>
-  </div>
+    <div class="clock"><b id="clock">--:--</b><span id="date"></span></div>
+  </header>
 
-  <div class="card">
-    <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <b>🎱 지금 당구장에 온 사람 <span class="sub">(최근 12시간)</span></b>
-      <button class="btn" id="liveRefresh">새로고침</button>
+  <!-- 내 출석 -->
+  <section class="panel" aria-label="내 출석">
+    <div class="me">
+      <button class="charbtn" id="charBtn" aria-label="내 캐릭터 고르기"><div class="orb" id="charOrb"><em></em></div><small>캐릭터</small></button>
+      <input id="name" placeholder="이름 (예: 홍길동)" enterkeyhint="go" autocomplete="name" maxlength="12" aria-label="이름">
     </div>
-    <div id="liveList"><p class="sub">불러오는 중…</p></div>
-  </div>
+    <p class="status" id="status" role="status" aria-live="polite"><i class="dot"></i><span id="statusText">이름을 넣고 출석하세요. 다음부터는 열기만 해도 자동으로 출석돼요.</span></p>
 
-  <div class="card" id="placeCard">
-    <details>
-      <summary>⚙️ 출석 장소 설정 (선택)</summary>
-      <p class="sub">출석 장소에서 「현재 위치를 출석 장소로」를 한 번 눌러두면, 이후 반경 안에서 출석했는지 표시됩니다.</p>
-      <div class="row">
-        <button class="btn" id="setPlace">현재 위치를 출석 장소로</button>
-        <button class="btn" id="clearPlace">해제</button>
+    <button class="cta" id="checkBtn"><span class="spin"></span><span id="checkLabel">출석하기</span></button>
+
+    <div class="kakao" id="kakao">
+      <button id="kakaoBtn">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="#FEE500" stroke="#e0c800" stroke-width=".6" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7l-1 3.6c-.1.4.3.7.6.5l4.2-2.8c.5.1 1 .1 1.5.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
+        카톡방에 알리기
+      </button>
+      <p>카카오톡 → 오픈채팅방 선택 → 전송</p>
+      <input id="kakaoBox" readonly aria-label="카톡에 보낼 문구">
+    </div>
+
+    <button class="cta leave" id="leaveBtn" style="display:none">퇴장하기</button>
+
+    <div class="plan" id="planBox">
+      <h3>늦게 오세요? 도착 시간 알리기</h3>
+      <div class="chips" role="group" aria-label="도착 시간">
+        <button class="chip" data-add="30">+30분</button>
+        <button class="chip" data-add="60" aria-pressed="true">+1시간</button>
+        <button class="chip" data-add="120">+2시간</button>
+        <label class="chip" id="customChip"><span id="customLabel">직접</span><input id="planTime" type="time" step="600" aria-label="도착 시간 직접 고르기"></label>
       </div>
-      <div style="height:10px"></div>
-      <label for="radius">허용 반경 (m)</label>
-      <input id="radius" type="number" min="10" step="10" value="100">
-      <p class="sub" id="placeInfo">출석 장소: 미설정</p>
-    </details>
-  </div>
-
-  <div class="card">
-    <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <b>출석 기록</b>
-      <div class="row">
-        <button class="btn" id="csvBtn">엑셀(CSV) 저장</button>
-        <button class="btn" id="clearBtn">전체 삭제</button>
+      <div class="planrow">
+        <button class="go" id="planBtn"><span id="planLabel">--:--</span>에 간다고 알리기</button>
+        <button class="cancel" id="cancelBtn" style="display:none">오늘 못 가요</button>
       </div>
     </div>
-    <div id="list"><p class="sub">아직 기록이 없습니다.</p></div>
-  </div>
+  </section>
+
+  <!-- 지금 당구장 -->
+  <section class="board" aria-label="지금 당구장">
+    <div class="board-head">
+      <div class="ttl"><span class="live"><i></i>실시간</span><h2>지금 당구장</h2></div>
+      <div class="count" aria-live="polite"><b id="hereNum">0</b><span>명</span></div>
+    </div>
+    <div class="scene">
+      <div class="table">
+        <i class="pocket tl"></i><i class="pocket tr"></i><i class="pocket ml"></i><i class="pocket mr"></i><i class="pocket bl"></i><i class="pocket br"></i>
+        <div class="diamonds" id="diamonds" aria-hidden="true"></div>
+        <div class="cloth" id="cloth">
+          <i class="head"></i><i class="spot"></i>
+          <div class="balls" id="hereList"><div class="notice"><div class="skel"></div><span>불러오는 중…</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="soon">
+      <div class="soon-head"><h3>곧 올 사람</h3><small id="planCount"></small></div>
+      <ul id="planList"><li class="none">불러오는 중…</li></ul>
+    </div>
+    <div class="foot"><span>오전 6시 초기화 · 1분마다 갱신</span><button class="refresh" id="refreshBtn">새로고침</button></div>
+  </section>
+
+  <!-- 캐릭터 고르기 -->
+  <dialog class="sheet" id="charSheet" aria-label="캐릭터 고르기">
+    <div class="in">
+      <div class="grip"></div>
+      <div class="sheet-head"><h2>내 캐릭터</h2><button class="xbtn" id="charClose">닫기</button></div>
+      <div class="preview"><div class="orb" id="prevOrb"><em></em></div><span style="font-size:14px;color:var(--sub)">현황판에 이 공으로 보여요</span></div>
+      <h3>공 고르기</h3>
+      <div class="grid" id="ballGrid"></div>
+      <h3>가운데 캐릭터</h3>
+      <div class="grid emo" id="emoGrid"></div>
+      <button class="done" id="charDone">이 캐릭터로 할게요</button>
+    </div>
+  </dialog>
+
+  <!-- 내 기록 -->
+  <details class="mine">
+    <summary>내 출석 기록</summary>
+    <div class="inner">
+      <div id="myList"></div>
+      <div class="tools"><button id="csvBtn">엑셀(CSV) 저장</button><button id="clearBtn">기록 지우기</button></div>
+    </div>
+  </details>
+
 </div>
 
 <script>
-// ===== 당구장 위치 설정 (여기 숫자만 바꾸면 됩니다) =====
-const FIXED_PLACE = {
-  name: '빌리어드테라피',               // 장소 이름
-  address: '대구광역시 중구 명덕로35길 99, 3층',
-  lat: 35.86105197,                     // 위도
-  lng: 128.58968609,                    // 경도
-  radius: 50                            // 허용 반경(m)
+// ===== 설정 (여기만 바꾸면 됩니다) =====
+const CONFIG = {
+  place:   '빌리어드테라피',
+  lat:     35.86105197,
+  lng:     128.58968609,
+  radius:  60,                                   // 허용 반경(m)
+  openchat:'https://open.kakao.com/o/gnKCHmCe',  // 카톡 오픈채팅방
+  topic:   'billiardtherapy-7k3m9q',             // ntfy 알림 채널
+  resetHour: 6                                   // 현황 초기화 시각
 };
-const OPENCHAT_URL = 'https://open.kakao.com/o/gnKCHmCe';   // 출석 알림 보낼 오픈채팅방
-const NTFY_TOPIC = 'billiardtherapy-7k3m9q';                 // ntfy 알림 채널 이름 (ntfy 앱에서 이 이름 구독)
-// =====================================================
+// =====================================
 
 const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const hm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store = {
-  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
-  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+  get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
 let records = store.get('att_records', []);
-const HAS_FIXED = FIXED_PLACE.lat != null && FIXED_PLACE.lng != null;
-let place = HAS_FIXED ? {lat:FIXED_PLACE.lat, lng:FIXED_PLACE.lng} : store.get('att_place', null);
-const getRadius = () => HAS_FIXED ? FIXED_PLACE.radius : (Number($('radius').value)||100);
-if(HAS_FIXED) document.getElementById('placeCard').style.display = 'none';
 
-// 시계
-const pad = n => String(n).padStart(2,'0');
+function dayStart(){
+  const d = new Date();
+  if(d.getHours() < CONFIG.resetHour) d.setDate(d.getDate()-1);
+  d.setHours(CONFIG.resetHour,0,0,0);
+  return d;
+}
+const dayKey = () => dayStart().toISOString().slice(0,10);
+
+// ---------- 공·캐릭터 공통 ----------
+const BALL_COLORS = {1:'#f2c100',2:'#1d4fb8',3:'#c8202b',4:'#5b2a86',5:'#e8731a',6:'#127a3e',7:'#8e1b23'};
+const BALL_NUMS = [1,2,3,4,5,6,7,9,10,11,12,13,14,15];     // 8번(검정) 제외
+const ballStyle = n => ({ color: BALL_COLORS[n > 8 ? n-8 : n], stripe: n > 8 });
+function hashOf(s){ let h = 0; for(const ch of s) h = (h*31 + ch.codePointAt(0)) >>> 0; return h; }
+const hashBall = name => BALL_NUMS[hashOf(name) % BALL_NUMS.length];
+const orbHTML = (ball, face, extra='') => {
+  const b = ballStyle(ball);
+  return `<div class="orb${b.stripe?' stripe':''}${extra}" style="--c:${b.color}"><em>${esc(face)}</em></div>`;
+};
+const CUTE = ['🐶','🐱','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐸','🐵','🐷','🐹','🐥','🐧','🦄','🐳','🐙','🐢','🦖','🐿️','🦔','🐮'];
+let myChar = store.get('att_char', null) || { ball: 0, emoji: '' };
+const nameNow = () => $('name').value.trim();
+const myBall = () => myChar.ball || hashBall(nameNow() || '?');
+const myFace = () => myChar.emoji || [...(nameNow() || '나')][0];
+
+// ---------- 시계 ----------
 function tick(){
   const d = new Date();
-  $('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  $('date').textContent = d.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  $('clock').textContent = hm(d);
+  $('date').textContent = d.toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});
 }
-tick(); setInterval(tick, 1000);
+tick(); setInterval(tick, 10000);
 
-// 이름·반경 기억
+// ---------- 상태 ----------
+function setStatus(text, kind=''){
+  $('status').className = 'status ' + kind;
+  $('statusText').textContent = text;
+}
+function busy(btn, on, label){
+  btn.disabled = on;
+  if(btn === $('checkBtn')){ btn.classList.toggle('loading', on); $('checkLabel').textContent = on ? '위치 확인 중…' : '출석하기'; }
+  else if(label){ if(on){ btn.dataset.orig = btn.innerHTML; btn.textContent = label; } else if(btn.dataset.orig){ btn.innerHTML = btn.dataset.orig; } }
+}
+
+// ---------- 이름 ----------
 $('name').value = store.get('att_name','');
-$('name').addEventListener('input', e => store.set('att_name', e.target.value.trim()));
-$('radius').value = store.get('att_radius', 100);
-$('radius').addEventListener('input', e => store.set('att_radius', Number(e.target.value)||100));
+$('name').addEventListener('input', () => { store.set('att_name', nameNow()); refreshMe(); paintMyChar(); });
+$('name').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); $('name').blur(); if(!present) checkIn(false); }
+});
+function needName(){
+  const n = nameNow();
+  if(!n){ setStatus('이름을 먼저 입력하세요.','warn'); $('name').focus(); }
+  return n;
+}
 
-// 거리 계산(m)
-function distance(a, b){
+// ---------- 위치 ----------
+function distance(a,b){
   const R = 6371000, r = x => x*Math.PI/180;
   const dLat = r(b.lat-a.lat), dLng = r(b.lng-a.lng);
   const h = Math.sin(dLat/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
   return Math.round(2*R*Math.asin(Math.sqrt(h)));
 }
-
 function getPos(){
   return new Promise((ok, fail) => {
-    if(!navigator.geolocation) return fail(new Error('이 브라우저는 위치 기능을 지원하지 않습니다.'));
+    if(!navigator.geolocation) return fail(new Error('이 브라우저는 위치 확인을 지원하지 않아요.'));
     navigator.geolocation.getCurrentPosition(
       p => ok({lat:p.coords.latitude, lng:p.coords.longitude, acc:Math.round(p.coords.accuracy)}),
-      e => fail(new Error(e.code===1 ? '위치 권한을 허용해 주세요.' : '위치를 가져오지 못했습니다. 다시 시도해 주세요.')),
+      e => fail(new Error(e.code===1 ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 위치를 허용하세요.' : '위치를 찾지 못했어요. 창가 쪽에서 다시 눌러보세요.')),
       {enableHighAccuracy:true, timeout:15000, maximumAge:0}
     );
   });
 }
+const fmtDist = m => m >= 1000 ? (m/1000).toFixed(1)+'km' : m+'m';
 
-const kakaoUrl = r => `https://map.kakao.com/link/map/${encodeURIComponent(r.name+' 출석')},${r.lat},${r.lng}`;
-const naverUrl = r => `https://map.naver.com/p?c=${r.lng},${r.lat},17,0,0,0,dh`;
-
-function showMsg(t, cls=''){ $('msg').className = 'msg '+cls; $('msg').textContent = t; }
-
-function render(){
-  $('placeInfo').textContent = place
-    ? `출석 장소: 설정됨 (${place.lat.toFixed(5)}, ${place.lng.toFixed(5)})`
-    : '출석 장소: 미설정';
-  if(!records.length){ $('list').innerHTML = '<p class="sub">아직 기록이 없습니다.</p>'; return; }
-  $('list').innerHTML = records.slice().reverse().map(r => {
-    const range = r.dist==null ? '' :
-      `<span class="${r.inRange?'ok':'no'}"> · ${r.inRange?'범위 안':'범위 밖'} (${r.dist}m)</span>`;
-    return `<div class="item">
-      <b>${r.name}</b> <span class="sub">${r.time}</span>${range}<br>
-      <span class="sub">정확도 ±${r.acc}m</span><br>
-      <a href="${kakaoUrl(r)}" target="_blank">카카오맵</a>
-      <a href="${naverUrl(r)}" target="_blank">네이버맵</a>
-    </div>`;
-  }).join('');
+// ---------- ntfy 전송 ----------
+function publish(title, message, tags){
+  if(myChar.emoji) message = `${myChar.emoji} ${message}`;          // 캐릭터 이모지는 문구 앞에
+  tags = [...tags, `ball${myBall()}`];                              // 공 번호는 태그로
+  return fetch('https://ntfy.sh/', {
+    method:'POST',
+    body: JSON.stringify({ topic: CONFIG.topic, title, message, tags })
+  }).then(r => { if(!r.ok) throw new Error('send'); setTimeout(loadBoard, 1200); });
 }
 
-async function checkIn(auto=false){
-  const name = $('name').value.trim();
-  if(!name){ if(!auto){ showMsg('이름을 먼저 입력해 주세요.','no'); $('name').focus(); } return; }
-  const today = new Date().toLocaleDateString('ko-KR');
-  if(records.some(r => r.name===name && r.day===today)){
-    if(auto){ showMsg(`✅ ${name}님은 오늘 이미 출석했습니다.`,'ok'); showKakao({name}); return; }
-    if(!confirm('오늘 이미 출석했습니다. 한 번 더 기록할까요?')) return;
-  }
-  if($('checkBtn').disabled) return;
+// ---------- 내 상태(출석 전/후 화면 전환) ----------
+let present = false, lastHere = [], lastPlans = [];
+function refreshMe(){
+  const me = nameNow();
+  const mineToday = records.filter(r => r.name === me && r.day === dayKey());
+  const lastLocalIn = mineToday.length > 0 && mineToday[mineToday.length-1].type === 'in';
+  setPresent(!!me && (lastHere.some(e => e.name === me) || lastLocalIn));
+  $('cancelBtn').style.display = (!!me && lastPlans.some(e => e.name === me)) ? 'block' : 'none';
+}
+function setPresent(v){
+  present = v;
+  $('checkBtn').style.display = v ? 'none' : 'flex';
+  $('leaveBtn').style.display = v ? 'flex' : 'none';
+  $('planBox').hidden = v;
+}
 
-  $('checkBtn').disabled = true; showMsg('위치 확인 중...');
+// ---------- 출석 ----------
+async function checkIn(auto){
+  const name = auto ? nameNow() : needName();
+  if(!name) return;
+  const today = dayKey();
+  const already = records.some(r => r.name===name && r.day===today && r.type==='in');
+  if(auto && (already || present)) return;
+
+  busy($('checkBtn'), true);
+  setStatus('위치를 확인하고 있어요…','busy');
   try{
     const p = await getPos();
-    const now = new Date();
-    const rec = {name, day:today, time: now.toLocaleString('ko-KR'), lat:p.lat, lng:p.lng, acc:p.acc, dist:null, inRange:null};
-    if(place){
-      rec.dist = distance(place, p);
-      rec.inRange = rec.dist <= getRadius();
+    const dist = distance(CONFIG, p);
+    if(dist > CONFIG.radius + Math.min(p.acc, 50)){       // GPS 오차 일부 허용
+      if(auto){ setStatus(`지금 ${CONFIG.place}에서 ${fmtDist(dist)} 거리예요. 도착하면 자동으로 출석할 수 있어요.`, ''); return; }
+      setStatus(`${CONFIG.place}에서 ${fmtDist(dist)} 떨어져 있어요. 도착하면 다시 눌러주세요. 늦으면 아래에서 도착 시간을 알려주세요.`, 'warn');
+      return;
     }
-    records.push(rec); store.set('att_records', records); render();
-    if(rec.inRange===false) showMsg(`출석 기록됨 · ${FIXED_PLACE.name}에서 ${rec.dist}m 떨어져 있습니다.`,'no');
-    else showMsg(`✅ ${name}님 출석 완료 (${pad(now.getHours())}:${pad(now.getMinutes())})`,'ok');
-    showKakao(rec);
-    sendNtfy(rec, now);
-  }catch(e){ showMsg(e.message,'no'); }
-  $('checkBtn').disabled = false;
-}
-
-// ===== ntfy 자동 출석 알림 =====
-function sendNtfy(rec, now){
-  if(!NTFY_TOPIC) return;
-  const range = rec.inRange==null ? '' : (rec.inRange ? ' · 범위 안' : ` · 범위 밖(${rec.dist}m)`);
-  fetch('https://ntfy.sh/', {
-    method: 'POST',
-    body: JSON.stringify({
-      topic: NTFY_TOPIC,
-      title: `${FIXED_PLACE.name} 출석`,
-      message: `${rec.name}님 출석 (${pad(now.getHours())}:${pad(now.getMinutes())})${range}`,
-      tags: [rec.inRange===false ? 'warning' : 'white_check_mark']
-    })
-  }).then(() => setTimeout(loadLive, 1500)).catch(()=>{});
-}
-
-// ===== 지금 온 사람 (ntfy 최근 12시간 기록) =====
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-async function loadLive(){
-  if(!NTFY_TOPIC){ $('liveList').innerHTML = ''; return; }
-  try{
-    const txt = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=12h`).then(r => r.text());
-    const people = new Map();
-    txt.split('\n').forEach(line => {
-      if(!line.trim()) return;
-      let ev; try{ ev = JSON.parse(line); }catch(e){ return; }
-      if(ev.event !== 'message' || !ev.message) return;
-      const m = ev.message.match(/^(.+?)님 출석 \((\d{2}:\d{2})\)(.*)$/);
-      if(!m) return;
-      const prev = people.get(m[1]);
-      if(!prev || ev.time > prev.t) people.set(m[1], {t: ev.time, hm: m[2], extra: m[3].replace(/^ · /,'')});
-    });
-    const list = [...people.entries()].sort((a,b) => b[1].t - a[1].t);
-    $('liveList').innerHTML = list.length
-      ? list.map(([n,v]) => `<div class="item"><b>${esc(n)}</b> <span class="sub">${esc(v.hm)}</span>${v.extra ? ` <span class="${v.extra.includes('밖')?'no':'ok'}">· ${esc(v.extra)}</span>` : ''}</div>`).join('')
-      : '<p class="sub">아직 온 사람이 없어요.</p>';
+    const now = new Date();
+    records.push({type:'in', name, day:today, time:now.toLocaleString('ko-KR'), lat:p.lat, lng:p.lng, acc:p.acc, dist});
+    store.set('att_records', records); renderMine();
+    setPresent(true);
+    await publish(`${CONFIG.place} 출석`, `${name}님 출석 (${hm(now)})`, ['white_check_mark']);
+    setStatus(`✓ ${hm(now)} 출석 완료 · 현황판에 올라갔어요`, 'ok');
+    offerKakao(`${name}님 당구장 도착! 🍀 게임하실 분~`);
   }catch(e){
-    $('liveList').innerHTML = '<p class="sub">목록을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</p>';
+    setStatus(e.message === 'send' ? '출석은 기록했지만 현황판 전송에 실패했어요. 새로고침 후 다시 시도하세요.' : e.message, 'warn');
+  }finally{
+    busy($('checkBtn'), false);
   }
 }
-$('liveRefresh').addEventListener('click', loadLive);
-loadLive();
-setInterval(loadLive, 60000);
+$('checkBtn').addEventListener('click', () => checkIn(false));
 
-// ===== 카톡 출석 알림 =====
-let kakaoText = '';
-let copyFailedOnce = false;
-function showKakao(rec){
-  const d = new Date();
-  kakaoText = `${rec.name}님 당구장 도착! 🎱 게임하실 분~`;
-  $('kakaoBox').value = kakaoText;
-  $('kakaoBtn').style.display = 'block';
-  $('kakaoHint').style.display = 'block';
+// ---------- 퇴장 ----------
+$('leaveBtn').addEventListener('click', async () => {
+  const name = needName(); if(!name) return;
+  busy($('leaveBtn'), true, '퇴장 처리 중…');
+  try{
+    const now = new Date();
+    await publish(`${CONFIG.place} 퇴장`, `${name}님 퇴장 (${hm(now)})`, ['wave']);
+    records.push({type:'out', name, day:dayKey(), time:now.toLocaleString('ko-KR')});
+    store.set('att_records', records); renderMine();
+    setPresent(false);
+    $('kakao').style.display = 'none';
+    setStatus(`${hm(now)} 퇴장했어요. 수고하셨어요!`, '');
+  }catch(e){ setStatus('퇴장을 보내지 못했어요. 잠시 후 다시 눌러주세요.','warn'); }
+  busy($('leaveBtn'), false);
+});
+
+// ---------- 도착 시간(출석 예정) ----------
+function setPlanFromNow(min){
+  const d = new Date(Date.now() + min*60000);
+  d.setMinutes(Math.round(d.getMinutes()/10)*10, 0, 0);
+  $('planTime').value = hm(d);
+  $('customLabel').textContent = '직접';
+  updatePlanLabel();
 }
-// 복사: 구형 방식(카톡 내장 브라우저용) + 최신 방식 둘 다 시도
+function updatePlanLabel(){ $('planLabel').textContent = $('planTime').value || '--:--'; }
+function pressChip(el){ document.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === el ? 'true' : 'false')); }
+document.querySelectorAll('.chip[data-add]').forEach(b => b.addEventListener('click', () => { pressChip(b); setPlanFromNow(Number(b.dataset.add)); }));
+$('planTime').addEventListener('input', () => {
+  pressChip($('customChip'));
+  $('customLabel').textContent = $('planTime').value || '직접';
+  updatePlanLabel();
+});
+setPlanFromNow(60);
+
+$('planBtn').addEventListener('click', async () => {
+  const name = needName(); if(!name) return;
+  const t = $('planTime').value;
+  if(!t){ setStatus('도착 시간을 골라주세요.','warn'); return; }
+  busy($('planBtn'), true, '알리는 중…');
+  try{
+    await publish(`${CONFIG.place} 출석 예정`, `${name}님 출석예정 (${t})`, ['alarm_clock']);
+    setStatus(`✓ ${t}에 온다고 알렸어요`, 'ok');
+    offerKakao(`${name}님 ${t} 도착 예정! 🍀 같이 치실 분~`);
+  }catch(e){ setStatus('도착 시간을 보내지 못했어요. 잠시 후 다시 눌러주세요.','warn'); }
+  busy($('planBtn'), false);
+});
+
+$('cancelBtn').addEventListener('click', async () => {
+  const name = needName(); if(!name) return;
+  if(!confirm(`${name}님, 오늘 출석 예정을 취소할까요?`)) return;
+  busy($('cancelBtn'), true, '취소 중…');
+  try{
+    await publish(`${CONFIG.place} 예정 취소`, `${name}님 출석예정 취소`, ['x']);
+    setStatus('출석 예정을 취소했어요.', '');
+    offerKakao(`${name}님 오늘 못 가요 🙏 다음에 봬요!`);
+  }catch(e){ setStatus('취소를 보내지 못했어요. 잠시 후 다시 눌러주세요.','warn'); }
+  busy($('cancelBtn'), false);
+});
+
+// ---------- 카톡 알리기 ----------
+let kakaoText = '', copyFailedOnce = false;
+function offerKakao(text){
+  kakaoText = text; $('kakaoBox').value = text;
+  $('kakao').style.display = 'block'; copyFailedOnce = false;
+}
 function copyLegacy(t){
   const box = $('kakaoBox');
-  box.value = t;
-  box.removeAttribute('readonly');
-  box.focus(); box.select(); box.setSelectionRange(0, t.length);
-  let ok = false;
-  try{ ok = document.execCommand('copy'); }catch(e){}
-  box.setAttribute('readonly','');
-  box.blur();
+  box.removeAttribute('readonly'); box.focus(); box.select(); box.setSelectionRange(0, t.length);
+  let ok = false; try{ ok = document.execCommand('copy'); }catch(e){}
+  box.setAttribute('readonly',''); box.blur();
   return ok;
 }
-async function copyText(t){
-  let ok = copyLegacy(t);
-  try{ await navigator.clipboard.writeText(t); ok = true; }catch(e){}
-  return ok;
-}
-$('kakaoBox').addEventListener('click', () => { $('kakaoBox').select(); });
 $('kakaoBtn').addEventListener('click', async () => {
-  // 1순위: 공유창 → 카카오톡 → 채팅방 선택 시 문구가 입력창에 채워짐
   if(navigator.share){
     try{ await navigator.share({ text: kakaoText }); return; }
     catch(e){ if(e && e.name === 'AbortError') return; }
   }
-  // 2순위: 복사 + 오픈채팅방 열기
-  const ok = await copyText(kakaoText);
-  $('copyState').textContent = ok
-    ? '✅ 복사 완료! 채팅방으로 이동합니다…'
-    : '⚠️ 자동 복사가 막혔어요. 위 문구를 길게 눌러 복사한 뒤, 버튼을 한 번 더 누르면 채팅방이 열려요.';
-  if(!ok && !copyFailedOnce){ copyFailedOnce = true; $('kakaoBox').select(); return; }
-  setTimeout(() => { location.href = OPENCHAT_URL; }, 700);
+  let ok = copyLegacy(kakaoText);
+  try{ await navigator.clipboard.writeText(kakaoText); ok = true; }catch(e){}
+  if(!ok && !copyFailedOnce){
+    copyFailedOnce = true;
+    setStatus('자동 복사가 막혔어요. 아래 문구를 길게 눌러 복사한 뒤 버튼을 한 번 더 누르세요.','warn');
+    $('kakaoBox').select(); return;
+  }
+  setStatus('문구를 복사했어요. 채팅방 입력창을 길게 눌러 붙여넣기 하세요.','ok');
+  setTimeout(() => { location.href = CONFIG.openchat; }, 600);
 });
 
-$('checkBtn').addEventListener('click', () => checkIn(false));
-$('name').addEventListener('keydown', e => {
-  if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); $('name').blur(); checkIn(false); }
-});
+// ---------- 현황판 ----------
+(function drawDiamonds(){
+  const pts = [];
+  [12.5,25,37.5,62.5,75,87.5].forEach(x => { pts.push([x,'6px','top']); pts.push([x,'6px','bottom']); });
+  [33,66].forEach(y => { pts.push([y,'6px','left']); pts.push([y,'6px','right']); });
+  $('diamonds').innerHTML = pts.map(([p,o,side]) =>
+    side==='top'||side==='bottom' ? `<i style="left:${p}%;${side}:${o}"></i>` : `<i style="top:${p}%;${side}:${o}"></i>`).join('');
+})();
 
-$('setPlace').addEventListener('click', async () => {
-  showMsg('출석 장소 위치 확인 중...');
-  try{ const p = await getPos(); place = {lat:p.lat, lng:p.lng}; store.set('att_place', place); render(); showMsg('출석 장소를 저장했습니다.','ok'); }
-  catch(e){ showMsg(e.message,'no'); }
-});
-$('clearPlace').addEventListener('click', () => { place = null; store.set('att_place', null); render(); });
+// 공을 자연스럽게 흩어놓을 자리(바닥 기준 %), 6명까지
+const SLOTS = [[50,46],[19,52],[81,44],[33,90],[67,88],[88,92]];
+let shown = new Set(), firstLoad = true;
 
+function parseEvents(txt){
+  const evs = [];
+  txt.split('\n').forEach(line => {
+    if(!line.trim()) return;
+    let ev; try{ ev = JSON.parse(line); }catch(e){ return; }
+    if(ev.event !== 'message' || !ev.message) return;
+    let s = ev.message.trim(), m, emoji = '';
+    const em = s.match(/^((?:\p{Extended_Pictographic}|️|‍)+)\s+/u);
+    if(em){ emoji = em[1]; s = s.slice(em[0].length); }
+    const bt = (ev.tags || []).find(t => /^ball\d{1,2}$/.test(t));
+    const ball = bt ? Number(bt.slice(4)) : 0;
+    const base = {t:ev.time, emoji, ball: BALL_NUMS.includes(ball) ? ball : 0};
+    if((m = s.match(/^(.+?)님 출석 \((\d{2}:\d{2})\)/)))       evs.push({...base, type:'in',     name:m[1], hm:m[2]});
+    else if((m = s.match(/^(.+?)님 퇴장/)))                    evs.push({...base, type:'out',    name:m[1]});
+    else if((m = s.match(/^(.+?)님 출석예정 \((\d{2}:\d{2})\)/))) evs.push({...base, type:'plan',   name:m[1], hm:m[2]});
+    else if((m = s.match(/^(.+?)님 출석예정 취소/)))            evs.push({...base, type:'cancel', name:m[1]});
+  });
+  return evs.sort((a,b) => a.t - b.t);
+}
+function buildState(evs){
+  const here = new Map(), plans = new Map();
+  for(const e of evs){
+    if(e.type==='in'){ here.set(e.name, e); plans.delete(e.name); }
+    else if(e.type==='out'){ here.delete(e.name); }
+    else if(e.type==='plan'){ if(!here.has(e.name)) plans.set(e.name, e); }
+    else if(e.type==='cancel'){ plans.delete(e.name); }
+  }
+  return { here:[...here.values()].sort((a,b)=>a.t-b.t), plans:[...plans.values()].sort((a,b)=>a.hm.localeCompare(b.hm)) };
+}
+function renderHere(here){
+  const cloth = $('cloth');
+  $('hereNum').textContent = here.length;
+  if(!here.length){
+    cloth.classList.remove('many');
+    $('hereList').innerHTML = `<div class="notice"><div class="cue"></div><b>테이블이 비어 있어요</b><span>첫 번째로 출석해 보세요</span></div>`;
+    return;
+  }
+  const many = here.length > SLOTS.length;
+  cloth.classList.toggle('many', many);
+  $('hereList').innerHTML = here.map((e, i) => {
+    const isNew = !firstLoad && !shown.has(e.name);
+    const ball = e.ball || hashBall(e.name), face = e.emoji || [...e.name][0];
+    const inner = `${orbHTML(ball, face)}`;
+    const tag = `<div class="tag"><b>${esc(e.name)}</b><small>${esc(e.hm)} 도착</small></div>`;
+    if(many) return `<div class="ball${isNew?' new':''}">${inner}${tag}</div>`;
+    const h = hashOf(e.name), [sx, sy] = SLOTS[i];
+    const x = sx + ((h % 7) - 3), y = sy + (((h >> 4) % 5) - 2);
+    return `<span class="shadow" style="left:${x}%;top:${y}%"></span>
+            <div class="ball${isNew?' new':''}" style="left:${x}%;top:${y}%">${inner}${tag}</div>`;
+  }).join('');
+}
+function renderPlans(plans){
+  $('planCount').textContent = plans.length ? `${plans.length}명` : '';
+  $('planList').innerHTML = plans.length ? plans.map(e =>
+    `<li>${orbHTML(e.ball || hashBall(e.name), e.emoji || [...e.name][0], ' mini')}${esc(e.name)}<time>${esc(e.hm)}</time></li>`
+  ).join('') : '<li class="none">아직 예정된 사람이 없어요</li>';
+}
+async function loadBoard(){
+  try{
+    const since = Math.floor(dayStart().getTime()/1000);
+    const res = await fetch(`https://ntfy.sh/${encodeURIComponent(CONFIG.topic)}/json?poll=1&since=${since}`);
+    if(!res.ok) throw new Error('http');
+    const {here, plans} = buildState(parseEvents(await res.text()));
+    renderHere(here); renderPlans(plans);
+    shown = new Set(here.map(e => e.name)); firstLoad = false;
+    lastHere = here; lastPlans = plans; refreshMe();
+    return true;
+  }catch(e){
+    $('cloth').classList.remove('many');
+    $('hereList').innerHTML = `<div class="notice"><div class="cue"></div><b>현황을 불러오지 못했어요</b><span>인터넷 연결을 확인한 뒤 다시 불러오세요</span><button onclick="loadBoard()">다시 불러오기</button></div>`;
+    $('planList').innerHTML = '<li class="none">불러오지 못했어요</li>';
+    return false;
+  }
+}
+$('refreshBtn').addEventListener('click', loadBoard);
+setInterval(loadBoard, 60000);
+
+// ---------- 캐릭터 고르기 ----------
+function paintOrb(el, ball, face){
+  const b = ballStyle(ball);
+  el.className = 'orb' + (b.stripe ? ' stripe' : '');
+  el.style.setProperty('--c', b.color);
+  el.querySelector('em').textContent = face;
+}
+function paintMyChar(){ paintOrb($('charOrb'), myBall(), myFace()); }
+let draft = null;
+function renderPicker(){
+  const ball = draft.ball || myBall();
+  paintOrb($('prevOrb'), ball, draft.emoji || [...(nameNow() || '나')][0]);
+  $('ballGrid').innerHTML = BALL_NUMS.map(n => {
+    const b = ballStyle(n);
+    return `<button aria-label="${n}번 공" aria-pressed="${ball===n}" data-ball="${n}"><div class="orb pick${b.stripe?' stripe':''}" style="--c:${b.color}"><em>${n}</em></div></button>`;
+  }).join('');
+  $('emoGrid').innerHTML =
+    `<button class="txt" aria-label="이름 첫 글자" aria-pressed="${!draft.emoji}" data-emo="">이름<small>첫 글자</small></button>` +
+    CUTE.map(e => `<button aria-label="${e}" aria-pressed="${draft.emoji===e}" data-emo="${e}">${e}</button>`).join('');
+}
+function closeSheet(){ const d = $('charSheet'); if(d.close) d.close(); else d.removeAttribute('open'); }
+$('charBtn').addEventListener('click', () => {
+  draft = { ...myChar }; renderPicker();
+  const d = $('charSheet'); if(d.showModal) d.showModal(); else d.setAttribute('open','');
+});
+$('ballGrid').addEventListener('click', e => { const b = e.target.closest('[data-ball]'); if(!b) return; draft.ball = Number(b.dataset.ball); renderPicker(); });
+$('emoGrid').addEventListener('click', e => { const b = e.target.closest('[data-emo]'); if(!b) return; draft.emoji = b.dataset.emo; renderPicker(); });
+$('charClose').addEventListener('click', closeSheet);
+$('charSheet').addEventListener('click', e => { if(e.target === $('charSheet')) closeSheet(); });
+$('charDone').addEventListener('click', () => {
+  myChar = { ball: draft.ball || myBall(), emoji: draft.emoji };
+  store.set('att_char', myChar); paintMyChar(); closeSheet();
+  setStatus('캐릭터를 바꿨어요. 다음 출석부터 현황판에 이 공으로 보여요.','ok');
+});
+paintMyChar();
+
+// ---------- 내 기록 ----------
+function renderMine(){
+  const list = records.slice().reverse().slice(0, 30);
+  $('myList').innerHTML = list.length ? list.map(r =>
+    `<div class="rec"><span>${r.type==='out'?'퇴장':'출석'} · ${esc(r.time)}</span>${r.lat ? `<a href="https://map.kakao.com/link/map/${encodeURIComponent(r.name)},${r.lat},${r.lng}" target="_blank" rel="noopener">위치</a>` : ''}</div>`
+  ).join('') : '<p style="margin:0;font-size:14px;color:var(--mint)">아직 기록이 없어요.</p>';
+}
 $('csvBtn').addEventListener('click', () => {
-  if(!records.length) return alert('저장할 기록이 없습니다.');
-  const head = ['이름','일시','위도','경도','정확도(m)','장소와 거리(m)','범위'];
-  const rows = records.map(r => [r.name, r.time, r.lat, r.lng, r.acc, r.dist??'', r.inRange==null?'':(r.inRange?'안':'밖')]);
-  const csv = '\uFEFF' + [head, ...rows].map(a => a.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  if(!records.length) return setStatus('저장할 기록이 없어요.','warn');
+  const head = ['구분','이름','일시','위도','경도','정확도(m)','거리(m)'];
+  const rows = records.map(r => [r.type==='out'?'퇴장':'출석', r.name, r.time, r.lat??'', r.lng??'', r.acc??'', r.dist??'']);
+  const csv = '﻿' + [head, ...rows].map(a => a.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
   a.download = `출석기록_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
 });
 $('clearBtn').addEventListener('click', () => {
-  if(confirm('출석 기록을 모두 삭제할까요?')){ records = []; store.set('att_records', records); render(); }
+  if(confirm('이 휴대폰에 저장된 내 출석 기록을 지울까요? (현황판에는 영향 없음)')){ records = []; store.set('att_records', records); renderMine(); }
 });
 
-render();
-// 이름이 저장돼 있으면 앱을 열자마자 자동 출석
-if($('name').value.trim()) checkIn(true);
+// ---------- 시작 ----------
+renderMine();
+loadBoard().then(ok => {
+  if(present) setStatus(`${nameNow()}님 출석 중이에요.`, 'ok');
+  else if(ok && nameNow()) checkIn(true);       // 매장 안일 때만 자동 출석
+});
 </script>
 </body>
 </html>
