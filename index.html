@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>셀프 출석체크</title>
+<title>자동출석체크기</title>
 <style>
   :root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#6b7280;--main:#2563eb;--ok:#16a34a;--no:#dc2626;--line:#e5e7eb}
   *{box-sizing:border-box}
@@ -31,19 +31,21 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>📍 셀프 출석체크</h1>
+  <h1>🎱 자동출석체크기</h1>
+  <p class="sub" style="text-align:center;margin:-10px 0 14px">빌리어드테라피 · 대구 중구 명덕로35길 99, 3층</p>
 
   <div class="card">
     <div class="clock" id="clock">--:--:--</div>
     <div class="date" id="date"></div>
     <label for="name">이름</label>
-    <input id="name" placeholder="이름을 입력하세요">
+    <input id="name" placeholder="이름 입력 후 엔터 → 자동 출석" enterkeyhint="go" autocomplete="name">
+    <p class="sub" style="margin:6px 0 0">처음 한 번만 이름을 입력하면, 다음부터는 앱을 열기만 해도 자동 출석됩니다.</p>
     <div style="height:12px"></div>
     <button class="big" id="checkBtn">출석하기</button>
     <div class="msg" id="msg"></div>
   </div>
 
-  <div class="card">
+  <div class="card" id="placeCard">
     <details>
       <summary>⚙️ 출석 장소 설정 (선택)</summary>
       <p class="sub">출석 장소에서 「현재 위치를 출석 장소로」를 한 번 눌러두면, 이후 반경 안에서 출석했는지 표시됩니다.</p>
@@ -71,13 +73,26 @@
 </div>
 
 <script>
+// ===== 당구장 위치 설정 (여기 숫자만 바꾸면 됩니다) =====
+const FIXED_PLACE = {
+  name: '빌리어드테라피',               // 장소 이름
+  address: '대구광역시 중구 명덕로35길 99, 3층',
+  lat: 35.86105197,                     // 위도
+  lng: 128.58968609,                    // 경도
+  radius: 50                            // 허용 반경(m)
+};
+// =====================================================
+
 const $ = id => document.getElementById(id);
 const store = {
   get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
 };
 let records = store.get('att_records', []);
-let place = store.get('att_place', null);
+const HAS_FIXED = FIXED_PLACE.lat != null && FIXED_PLACE.lng != null;
+let place = HAS_FIXED ? {lat:FIXED_PLACE.lat, lng:FIXED_PLACE.lng} : store.get('att_place', null);
+const getRadius = () => HAS_FIXED ? FIXED_PLACE.radius : (Number($('radius').value)||100);
+if(HAS_FIXED) document.getElementById('placeCard').style.display = 'none';
 
 // 시계
 const pad = n => String(n).padStart(2,'0');
@@ -135,11 +150,15 @@ function render(){
   }).join('');
 }
 
-$('checkBtn').addEventListener('click', async () => {
+async function checkIn(auto=false){
   const name = $('name').value.trim();
-  if(!name){ showMsg('이름을 먼저 입력해 주세요.','no'); $('name').focus(); return; }
+  if(!name){ if(!auto){ showMsg('이름을 먼저 입력해 주세요.','no'); $('name').focus(); } return; }
   const today = new Date().toLocaleDateString('ko-KR');
-  if(records.some(r => r.name===name && r.day===today) && !confirm('오늘 이미 출석했습니다. 한 번 더 기록할까요?')) return;
+  if(records.some(r => r.name===name && r.day===today)){
+    if(auto){ showMsg(`✅ ${name}님은 오늘 이미 출석했습니다.`,'ok'); return; }
+    if(!confirm('오늘 이미 출석했습니다. 한 번 더 기록할까요?')) return;
+  }
+  if($('checkBtn').disabled) return;
 
   $('checkBtn').disabled = true; showMsg('위치 확인 중...');
   try{
@@ -148,13 +167,18 @@ $('checkBtn').addEventListener('click', async () => {
     const rec = {name, day:today, time: now.toLocaleString('ko-KR'), lat:p.lat, lng:p.lng, acc:p.acc, dist:null, inRange:null};
     if(place){
       rec.dist = distance(place, p);
-      rec.inRange = rec.dist <= (Number($('radius').value)||100);
+      rec.inRange = rec.dist <= getRadius();
     }
     records.push(rec); store.set('att_records', records); render();
-    if(rec.inRange===false) showMsg(`출석 기록됨 · 출석 장소에서 ${rec.dist}m 떨어져 있습니다.`,'no');
+    if(rec.inRange===false) showMsg(`출석 기록됨 · ${FIXED_PLACE.name}에서 ${rec.dist}m 떨어져 있습니다.`,'no');
     else showMsg(`✅ ${name}님 출석 완료 (${pad(now.getHours())}:${pad(now.getMinutes())})`,'ok');
   }catch(e){ showMsg(e.message,'no'); }
   $('checkBtn').disabled = false;
+}
+
+$('checkBtn').addEventListener('click', () => checkIn(false));
+$('name').addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.isComposing){ e.preventDefault(); $('name').blur(); checkIn(false); }
 });
 
 $('setPlace').addEventListener('click', async () => {
@@ -179,6 +203,8 @@ $('clearBtn').addEventListener('click', () => {
 });
 
 render();
+// 이름이 저장돼 있으면 앱을 열자마자 자동 출석
+if($('name').value.trim()) checkIn(true);
 </script>
 </body>
 </html>
