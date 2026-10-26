@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>셀프 출석체크</title>
+<style>
+  :root{--bg:#f5f6f8;--card:#fff;--text:#1f2328;--sub:#6b7280;--main:#2563eb;--ok:#16a34a;--no:#dc2626;--line:#e5e7eb}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Malgun Gothic","맑은 고딕",sans-serif;font-size:16px}
+  .wrap{max-width:480px;margin:0 auto;padding:20px 16px 40px}
+  h1{font-size:22px;margin:4px 0 16px;text-align:center}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  label{font-size:14px;color:var(--sub);display:block;margin-bottom:6px}
+  input{width:100%;padding:12px;font-size:16px;border:1px solid var(--line);border-radius:10px;font-family:inherit}
+  .clock{text-align:center;font-size:30px;font-weight:bold;margin:6px 0 2px}
+  .date{text-align:center;color:var(--sub);font-size:14px;margin-bottom:14px}
+  .big{width:100%;padding:18px;font-size:20px;font-weight:bold;color:#fff;background:var(--main);border:0;border-radius:12px;cursor:pointer}
+  .big:disabled{opacity:.6}
+  .btn{padding:9px 12px;font-size:14px;border:1px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-family:inherit}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .msg{margin-top:12px;font-size:15px;text-align:center;min-height:20px}
+  .ok{color:var(--ok)} .no{color:var(--no)}
+  .item{border-top:1px solid var(--line);padding:10px 0;font-size:14px}
+  .item:first-child{border-top:0}
+  .item b{font-size:15px}
+  .item a{color:var(--main);text-decoration:none;margin-right:10px}
+  .sub{color:var(--sub);font-size:13px}
+  details summary{cursor:pointer;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📍 셀프 출석체크</h1>
+
+  <div class="card">
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="date" id="date"></div>
+    <label for="name">이름</label>
+    <input id="name" placeholder="이름을 입력하세요">
+    <div style="height:12px"></div>
+    <button class="big" id="checkBtn">출석하기</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>⚙️ 출석 장소 설정 (선택)</summary>
+      <p class="sub">출석 장소에서 「현재 위치를 출석 장소로」를 한 번 눌러두면, 이후 반경 안에서 출석했는지 표시됩니다.</p>
+      <div class="row">
+        <button class="btn" id="setPlace">현재 위치를 출석 장소로</button>
+        <button class="btn" id="clearPlace">해제</button>
+      </div>
+      <div style="height:10px"></div>
+      <label for="radius">허용 반경 (m)</label>
+      <input id="radius" type="number" min="10" step="10" value="100">
+      <p class="sub" id="placeInfo">출석 장소: 미설정</p>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:6px">
+      <b>출석 기록</b>
+      <div class="row">
+        <button class="btn" id="csvBtn">엑셀(CSV) 저장</button>
+        <button class="btn" id="clearBtn">전체 삭제</button>
+      </div>
+    </div>
+    <div id="list"><p class="sub">아직 기록이 없습니다.</p></div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+let records = store.get('att_records', []);
+let place = store.get('att_place', null);
+
+// 시계
+const pad = n => String(n).padStart(2,'0');
+function tick(){
+  const d = new Date();
+  $('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  $('date').textContent = d.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+}
+tick(); setInterval(tick, 1000);
+
+// 이름·반경 기억
+$('name').value = store.get('att_name','');
+$('name').addEventListener('input', e => store.set('att_name', e.target.value.trim()));
+$('radius').value = store.get('att_radius', 100);
+$('radius').addEventListener('input', e => store.set('att_radius', Number(e.target.value)||100));
+
+// 거리 계산(m)
+function distance(a, b){
+  const R = 6371000, r = x => x*Math.PI/180;
+  const dLat = r(b.lat-a.lat), dLng = r(b.lng-a.lng);
+  const h = Math.sin(dLat/2)**2 + Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
+  return Math.round(2*R*Math.asin(Math.sqrt(h)));
+}
+
+function getPos(){
+  return new Promise((ok, fail) => {
+    if(!navigator.geolocation) return fail(new Error('이 브라우저는 위치 기능을 지원하지 않습니다.'));
+    navigator.geolocation.getCurrentPosition(
+      p => ok({lat:p.coords.latitude, lng:p.coords.longitude, acc:Math.round(p.coords.accuracy)}),
+      e => fail(new Error(e.code===1 ? '위치 권한을 허용해 주세요.' : '위치를 가져오지 못했습니다. 다시 시도해 주세요.')),
+      {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+    );
+  });
+}
+
+const kakaoUrl = r => `https://map.kakao.com/link/map/${encodeURIComponent(r.name+' 출석')},${r.lat},${r.lng}`;
+const naverUrl = r => `https://map.naver.com/p?c=${r.lng},${r.lat},17,0,0,0,dh`;
+
+function showMsg(t, cls=''){ $('msg').className = 'msg '+cls; $('msg').textContent = t; }
+
+function render(){
+  $('placeInfo').textContent = place
+    ? `출석 장소: 설정됨 (${place.lat.toFixed(5)}, ${place.lng.toFixed(5)})`
+    : '출석 장소: 미설정';
+  if(!records.length){ $('list').innerHTML = '<p class="sub">아직 기록이 없습니다.</p>'; return; }
+  $('list').innerHTML = records.slice().reverse().map(r => {
+    const range = r.dist==null ? '' :
+      `<span class="${r.inRange?'ok':'no'}"> · ${r.inRange?'범위 안':'범위 밖'} (${r.dist}m)</span>`;
+    return `<div class="item">
+      <b>${r.name}</b> <span class="sub">${r.time}</span>${range}<br>
+      <span class="sub">정확도 ±${r.acc}m</span><br>
+      <a href="${kakaoUrl(r)}" target="_blank">카카오맵</a>
+      <a href="${naverUrl(r)}" target="_blank">네이버맵</a>
+    </div>`;
+  }).join('');
+}
+
+$('checkBtn').addEventListener('click', async () => {
+  const name = $('name').value.trim();
+  if(!name){ showMsg('이름을 먼저 입력해 주세요.','no'); $('name').focus(); return; }
+  const today = new Date().toLocaleDateString('ko-KR');
+  if(records.some(r => r.name===name && r.day===today) && !confirm('오늘 이미 출석했습니다. 한 번 더 기록할까요?')) return;
+
+  $('checkBtn').disabled = true; showMsg('위치 확인 중...');
+  try{
+    const p = await getPos();
+    const now = new Date();
+    const rec = {name, day:today, time: now.toLocaleString('ko-KR'), lat:p.lat, lng:p.lng, acc:p.acc, dist:null, inRange:null};
+    if(place){
+      rec.dist = distance(place, p);
+      rec.inRange = rec.dist <= (Number($('radius').value)||100);
+    }
+    records.push(rec); store.set('att_records', records); render();
+    if(rec.inRange===false) showMsg(`출석 기록됨 · 출석 장소에서 ${rec.dist}m 떨어져 있습니다.`,'no');
+    else showMsg(`✅ ${name}님 출석 완료 (${pad(now.getHours())}:${pad(now.getMinutes())})`,'ok');
+  }catch(e){ showMsg(e.message,'no'); }
+  $('checkBtn').disabled = false;
+});
+
+$('setPlace').addEventListener('click', async () => {
+  showMsg('출석 장소 위치 확인 중...');
+  try{ const p = await getPos(); place = {lat:p.lat, lng:p.lng}; store.set('att_place', place); render(); showMsg('출석 장소를 저장했습니다.','ok'); }
+  catch(e){ showMsg(e.message,'no'); }
+});
+$('clearPlace').addEventListener('click', () => { place = null; store.set('att_place', null); render(); });
+
+$('csvBtn').addEventListener('click', () => {
+  if(!records.length) return alert('저장할 기록이 없습니다.');
+  const head = ['이름','일시','위도','경도','정확도(m)','장소와 거리(m)','범위'];
+  const rows = records.map(r => [r.name, r.time, r.lat, r.lng, r.acc, r.dist??'', r.inRange==null?'':(r.inRange?'안':'밖')]);
+  const csv = '\uFEFF' + [head, ...rows].map(a => a.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+  a.download = `출석기록_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+});
+$('clearBtn').addEventListener('click', () => {
+  if(confirm('출석 기록을 모두 삭제할까요?')){ records = []; store.set('att_records', records); render(); }
+});
+
+render();
+</script>
+</body>
+</html>
