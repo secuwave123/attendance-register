@@ -160,9 +160,12 @@
   .links .pair{stroke:#f6d98f;stroke-width:5;filter:drop-shadow(0 0 6px rgba(246,217,143,.95))}
   .links .pending{stroke:rgba(255,255,255,.75);stroke-width:2;stroke-dasharray:6 6;animation:dash 1s linear infinite}
   @keyframes dash{to{stroke-dashoffset:-12}}
-  .ball{cursor:pointer;-webkit-tap-highlight-color:transparent}
-  .ball:focus-visible{outline:none}
-  .ball:focus-visible .orb,.ball.sel .orb{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent),0 3px 4px rgba(0,0,0,.3)}
+  /* 3D 요소는 휴대폰에서 터치 인식이 어긋나므로, 평평한 투명 버튼을 공 위에 겹쳐서 받음 */
+  .ball{pointer-events:none}
+  .hits{position:absolute;inset:0;z-index:5;pointer-events:none}
+  .hit{position:absolute;pointer-events:auto;background:transparent;border-radius:16px;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+  .hit:focus-visible{outline:3px solid #ffd54a;outline-offset:2px}
+  .ball.sel .orb{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent),0 3px 4px rgba(0,0,0,.3)}
   .ball.me .tag{border-color:rgba(243,211,138,.7)}
   .tag .duo{color:#f3d38a}
 
@@ -293,7 +296,8 @@
       <div class="count" aria-live="polite"><b id="hereNum">0</b><span>명</span></div>
     </div>
     <div class="invites" id="invites" aria-live="polite"></div>
-    <div class="scene">
+    <div class="scene" id="scene">
+      <div class="hits" id="hits"></div>
       <div class="table">
         <i class="pocket tl"></i><i class="pocket tr"></i><i class="pocket ml"></i><i class="pocket mr"></i><i class="pocket bl"></i><i class="pocket br"></i>
         <div class="diamonds" id="diamonds" aria-hidden="true"></div>
@@ -667,7 +671,7 @@ function renderHere(here){
     const cls = `ball${isNew?' new':''}${e.name===me?' me':''}${e.name===selected?' sel':''}`;
     const sub = duo.length ? `<small class="duo">🤝 ${esc(duo.join('·'))}</small>` : `<small>${esc(e.hm)} 도착</small>`;
     const inner = `${orbHTML(ball, face)}<div class="tag"><b>${esc(e.name)}${e.name===me?' (나)':''}</b>${sub}</div>`;
-    const attrs = `data-name="${esc(e.name)}" role="button" tabindex="0" aria-label="${esc(e.name)}${duo.length?', 같이 치는 중':''}"`;
+    const attrs = `data-name="${esc(e.name)}" aria-hidden="true"`;
     if(many) return `<div class="${cls}" ${attrs}>${inner}</div>`;
     const h = hashOf(e.name), [sx, sy] = SLOTS[i];
     const x = sx + ((h % 7) - 3), y = sy + (((h >> 4) % 5) - 2);
@@ -680,7 +684,22 @@ function renderHere(here){
     const line = (a, b, c) => pos[a] && pos[b] ? `<line class="${c}" x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}"/>` : '';
     $('links').innerHTML = lastInvites.map(v => line(v.from, v.to, 'pending')).join('') + lastPairs.map(p => line(p.a, p.b, 'pair')).join('');
   }
+  requestAnimationFrame(placeHits);
+  setTimeout(placeHits, 700);          // 공 떨어지는 효과가 끝난 뒤 위치 다시 맞춤
 }
+
+// 화면에 실제로 보이는 공 위치를 재서, 그 자리에 평평한 터치 버튼을 놓음
+function placeHits(){
+  const scene = $('scene').getBoundingClientRect();
+  $('hits').innerHTML = [...document.querySelectorAll('#hereList .ball')].map(b => {
+    const r = b.getBoundingClientRect(), n = b.dataset.name;
+    const pad = 4;
+    return `<button class="hit" data-name="${esc(n)}" aria-label="${esc(n)}${partnersOf(n).length ? ', 같이 치는 중' : ''} 공 선택"
+      style="left:${r.left - scene.left - pad}px;top:${r.top - scene.top - pad}px;width:${r.width + pad*2}px;height:${r.height + pad*2}px"></button>`;
+  }).join('');
+}
+window.addEventListener('resize', () => requestAnimationFrame(placeHits));
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => placeHits());
 
 // 받은 「같이 쳐요」 요청
 const dismissed = new Set();
@@ -730,11 +749,7 @@ function selectBall(name){
   document.querySelectorAll('#hereList .ball').forEach(b => b.classList.toggle('sel', b.dataset.name === selected));
   renderPickbar();
 }
-$('hereList').addEventListener('click', e => { const b = e.target.closest('.ball'); if(b) selectBall(b.dataset.name); });
-$('hereList').addEventListener('keydown', e => {
-  const b = e.target.closest('.ball');
-  if(b && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); selectBall(b.dataset.name); }
-});
+$('hits').addEventListener('click', e => { const b = e.target.closest('.hit'); if(b) selectBall(b.dataset.name); });
 $('pickbar').addEventListener('click', async e => {
   const btn = e.target.closest('[data-act]'); if(!btn) return;
   const act = btn.dataset.act, me = nameNow(), to = selected;
