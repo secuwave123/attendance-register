@@ -154,6 +154,32 @@
   .notice button{margin-top:4px;min-height:44px;padding:0 18px;border-radius:999px;background:rgba(255,255,255,.16);color:#fff;font-size:14px;font-weight:600;border:1px solid rgba(255,255,255,.22)}
   .skel{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,.12);animation:pulse 1.2s infinite}
 
+  /* 같이 쳐요: 연결선 */
+  .links{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+  .links line{vector-effect:non-scaling-stroke;stroke-linecap:round}
+  .links .pair{stroke:#f6d98f;stroke-width:5;filter:drop-shadow(0 0 6px rgba(246,217,143,.95))}
+  .links .pending{stroke:rgba(255,255,255,.75);stroke-width:2;stroke-dasharray:6 6;animation:dash 1s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-12}}
+  .ball{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .ball:focus-visible{outline:none}
+  .ball:focus-visible .orb,.ball.sel .orb{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--accent),0 3px 4px rgba(0,0,0,.3)}
+  .ball.me .tag{border-color:rgba(243,211,138,.7)}
+  .tag .duo{color:#f3d38a}
+
+  .pickbar,.invite{display:flex;align-items:center;gap:10px;margin-top:10px;padding:12px 12px 12px 14px;border-radius:var(--r-m);
+                   background:var(--paper);color:var(--ink);box-shadow:0 10px 24px -10px rgba(0,0,0,.5)}
+  .pickbar[hidden]{display:none}
+  .pickbar p,.invite p{margin:0;flex:1;font-size:14px;font-weight:600;line-height:1.4}
+  .pickbar .orb.mini,.invite .orb.mini{width:34px;height:34px;flex:none}
+  .pickbar .orb.mini::after,.invite .orb.mini::after{left:6px;top:4px;width:9px;height:5px}
+  .pickbar .orb.mini em,.invite .orb.mini em{inset:8px;font-size:13px}
+  .pickbar button,.invite button{min-height:44px;padding:0 14px;border-radius:var(--r-s);font-weight:800;font-size:14px;white-space:nowrap}
+  .btn-go{background:var(--accent);color:#fff}
+  .btn-ghost{background:transparent;color:var(--sub)}
+  .invites{margin-bottom:6px}
+  .invite{margin:0 0 8px;border:2px solid #f3d38a;animation:pop .35s cubic-bezier(.2,1.4,.4,1)}
+  @keyframes pop{from{transform:scale(.94);opacity:0}}
+
   .soon{margin-top:8px;background:rgba(3,24,18,.4);border:1px solid rgba(255,255,255,.08);border-radius:var(--r-l);padding:16px}
   .soon-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;color:#fff}
   .soon-head h3{margin:0;font-size:16px;font-weight:700;letter-spacing:-.3px}
@@ -266,16 +292,20 @@
       <div class="ttl"><span class="live"><i></i>실시간</span><h2>지금 당구장</h2></div>
       <div class="count" aria-live="polite"><b id="hereNum">0</b><span>명</span></div>
     </div>
+    <div class="invites" id="invites" aria-live="polite"></div>
     <div class="scene">
       <div class="table">
         <i class="pocket tl"></i><i class="pocket tr"></i><i class="pocket ml"></i><i class="pocket mr"></i><i class="pocket bl"></i><i class="pocket br"></i>
         <div class="diamonds" id="diamonds" aria-hidden="true"></div>
         <div class="cloth" id="cloth">
           <i class="head"></i><i class="spot"></i>
+          <svg class="links" id="links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
           <div class="balls" id="hereList"><div class="notice"><div class="skel"></div><span>불러오는 중…</span></div></div>
         </div>
       </div>
     </div>
+    <div class="pickbar" id="pickbar" hidden></div>
+    <p class="foot" style="margin:6px 4px 10px;justify-content:center">다른 사람 공을 누르면 「같이 쳐요」를 보낼 수 있어요</p>
     <div class="soon">
       <div class="soon-head"><h3>곧 올 사람</h3><small id="planCount"></small></div>
       <ul id="planList"><li class="none">불러오는 중…</li></ul>
@@ -416,7 +446,7 @@ function publish(title, message, tags){
 }
 
 // ---------- 내 상태(출석 전/후 화면 전환) ----------
-let present = false, lastHere = [], lastPlans = [];
+let present = false, lastHere = [], lastPlans = [], lastInvites = [], lastPairs = [];
 function refreshMe(){
   const me = nameNow();
   const mineToday = records.filter(r => r.name === me && r.day === dayKey());
@@ -577,26 +607,51 @@ function parseEvents(txt){
     const bt = (ev.tags || []).find(t => /^ball\d{1,2}$/.test(t));
     const ball = bt ? Number(bt.slice(4)) : 0;
     const base = {t:ev.time, emoji, ball: BALL_NUMS.includes(ball) ? ball : 0};
-    if((m = s.match(/^(.+?)님 출석 \((\d{2}:\d{2})\)/)))       evs.push({...base, type:'in',     name:m[1], hm:m[2]});
+    if((m = s.match(/^(.+?)님이 (.+?)님에게 같이 쳐요$/)))       evs.push({...base, type:'invite', name:m[1], to:m[2]});
+    else if((m = s.match(/^(.+?)님이 (.+?)님과 같이 쳐요 수락$/))) evs.push({...base, type:'accept', name:m[1], to:m[2]});
+    else if((m = s.match(/^(.+?)님 출석 \((\d{2}:\d{2})\)/)))  evs.push({...base, type:'in',     name:m[1], hm:m[2]});
     else if((m = s.match(/^(.+?)님 퇴장/)))                    evs.push({...base, type:'out',    name:m[1]});
     else if((m = s.match(/^(.+?)님 출석예정 \((\d{2}:\d{2})\)/))) evs.push({...base, type:'plan',   name:m[1], hm:m[2]});
     else if((m = s.match(/^(.+?)님 출석예정 취소/)))            evs.push({...base, type:'cancel', name:m[1]});
   });
   return evs.sort((a,b) => a.t - b.t);
 }
+const pairKey = (a,b) => [a,b].sort().join('\u0001');
 function buildState(evs){
-  const here = new Map(), plans = new Map();
+  const here = new Map(), plans = new Map(), invites = new Map(), pairs = new Map();
+  const dropPerson = n => {
+    for(const [k,v] of invites) if(v.from===n || v.to===n) invites.delete(k);
+    for(const [k,v] of pairs)   if(v.a===n || v.b===n) pairs.delete(k);
+  };
   for(const e of evs){
     if(e.type==='in'){ here.set(e.name, e); plans.delete(e.name); }
-    else if(e.type==='out'){ here.delete(e.name); }
+    else if(e.type==='out'){ here.delete(e.name); dropPerson(e.name); }
     else if(e.type==='plan'){ if(!here.has(e.name)) plans.set(e.name, e); }
     else if(e.type==='cancel'){ plans.delete(e.name); }
+    else if(e.type==='invite'){ if(e.name!==e.to && !pairs.has(pairKey(e.name,e.to))) invites.set(`${e.name}\u0001${e.to}`, {from:e.name, to:e.to, t:e.t}); }
+    else if(e.type==='accept'){                       // e.name 이 e.to 의 요청을 수락
+      if(invites.has(`${e.to}\u0001${e.name}`) || invites.has(`${e.name}\u0001${e.to}`)){
+        invites.delete(`${e.to}\u0001${e.name}`); invites.delete(`${e.name}\u0001${e.to}`);
+        pairs.set(pairKey(e.name,e.to), {a:e.name, b:e.to, t:e.t});
+      }
+    }
   }
-  return { here:[...here.values()].sort((a,b)=>a.t-b.t), plans:[...plans.values()].sort((a,b)=>a.hm.localeCompare(b.hm)) };
+  const alive = n => here.has(n);
+  return {
+    here: [...here.values()].sort((a,b)=>a.t-b.t),
+    plans: [...plans.values()].sort((a,b)=>a.hm.localeCompare(b.hm)),
+    invites: [...invites.values()].filter(v => alive(v.from) && alive(v.to)),
+    pairs: [...pairs.values()].filter(v => alive(v.a) && alive(v.b))
+  };
+}
+let selected = null;                 // 내가 고른 상대 공
+function partnersOf(name){
+  return lastPairs.filter(p => p.a===name || p.b===name).map(p => p.a===name ? p.b : p.a);
 }
 function renderHere(here){
-  const cloth = $('cloth');
+  const cloth = $('cloth'), me = nameNow();
   $('hereNum').textContent = here.length;
+  $('links').innerHTML = '';
   if(!here.length){
     cloth.classList.remove('many');
     $('hereList').innerHTML = `<div class="notice"><div class="cue"></div><b>테이블이 비어 있어요</b><span>첫 번째로 출석해 보세요</span></div>`;
@@ -604,18 +659,100 @@ function renderHere(here){
   }
   const many = here.length > SLOTS.length;
   cloth.classList.toggle('many', many);
+  const pos = {};
   $('hereList').innerHTML = here.map((e, i) => {
     const isNew = !firstLoad && !shown.has(e.name);
     const ball = e.ball || hashBall(e.name), face = e.emoji || [...e.name][0];
-    const inner = `${orbHTML(ball, face)}`;
-    const tag = `<div class="tag"><b>${esc(e.name)}</b><small>${esc(e.hm)} 도착</small></div>`;
-    if(many) return `<div class="ball${isNew?' new':''}">${inner}${tag}</div>`;
+    const duo = partnersOf(e.name);
+    const cls = `ball${isNew?' new':''}${e.name===me?' me':''}${e.name===selected?' sel':''}`;
+    const sub = duo.length ? `<small class="duo">🤝 ${esc(duo.join('·'))}</small>` : `<small>${esc(e.hm)} 도착</small>`;
+    const inner = `${orbHTML(ball, face)}<div class="tag"><b>${esc(e.name)}${e.name===me?' (나)':''}</b>${sub}</div>`;
+    const attrs = `data-name="${esc(e.name)}" role="button" tabindex="0" aria-label="${esc(e.name)}${duo.length?', 같이 치는 중':''}"`;
+    if(many) return `<div class="${cls}" ${attrs}>${inner}</div>`;
     const h = hashOf(e.name), [sx, sy] = SLOTS[i];
     const x = sx + ((h % 7) - 3), y = sy + (((h >> 4) % 5) - 2);
-    return `<span class="shadow" style="left:${x}%;top:${y}%"></span>
-            <div class="ball${isNew?' new':''}" style="left:${x}%;top:${y}%">${inner}${tag}</div>`;
+    pos[e.name] = [x, y];
+    return `<span class="shadow" style="left:${x}%;top:${y}%"></span><div class="${cls}" style="left:${x}%;top:${y}%" ${attrs}>${inner}</div>`;
+  }).join('');
+
+  // 연결선: 수락된 짝은 금색 실선, 대기 중 요청은 점선 (공이 닿은 바닥 지점끼리)
+  if(!many){
+    const line = (a, b, c) => pos[a] && pos[b] ? `<line class="${c}" x1="${pos[a][0]}" y1="${pos[a][1]}" x2="${pos[b][0]}" y2="${pos[b][1]}"/>` : '';
+    $('links').innerHTML = lastInvites.map(v => line(v.from, v.to, 'pending')).join('') + lastPairs.map(p => line(p.a, p.b, 'pair')).join('');
+  }
+}
+
+// 받은 「같이 쳐요」 요청
+const dismissed = new Set();
+function renderInvites(){
+  const me = nameNow();
+  const mine = present ? lastInvites.filter(v => v.to === me && !dismissed.has(v.from + v.t)) : [];
+  $('invites').innerHTML = mine.map(v => {
+    const who = lastHere.find(e => e.name === v.from) || {};
+    return `<div class="invite">${orbHTML(who.ball || hashBall(v.from), who.emoji || [...v.from][0], ' mini')}
+      <p>${esc(v.from)}님이 같이 치자고 해요</p>
+      <button class="btn-ghost" data-later="${esc(v.from + v.t)}">나중에</button>
+      <button class="btn-go" data-accept="${esc(v.from)}">수락</button></div>`;
   }).join('');
 }
+$('invites').addEventListener('click', async e => {
+  const later = e.target.closest('[data-later]'), acc = e.target.closest('[data-accept]');
+  if(later){ dismissed.add(later.dataset.later); renderInvites(); return; }
+  if(!acc) return;
+  const me = nameNow(), from = acc.dataset.accept;
+  busy(acc, true, '수락 중…');
+  try{
+    await publish(`${CONFIG.place} 같이 쳐요`, `${me}님이 ${from}님과 같이 쳐요 수락`, ['handshake']);
+    setStatus(`✓ ${from}님과 같이 치기로 했어요`, 'ok');
+    offerKakao(`${from}님이랑 ${me} 같이 칩니다 🍀`);
+  }catch(err){ setStatus('수락을 보내지 못했어요. 잠시 후 다시 눌러주세요.','warn'); busy(acc, false); }
+});
+
+// 공을 눌렀을 때
+function renderPickbar(){
+  const bar = $('pickbar'), me = nameNow();
+  if(!selected){ bar.hidden = true; bar.innerHTML = ''; return; }
+  const who = lastHere.find(e => e.name === selected);
+  if(!who){ selected = null; bar.hidden = true; return; }
+  const orb = orbHTML(who.ball || hashBall(who.name), who.emoji || [...who.name][0], ' mini');
+  let msg, action = '';
+  if(selected === me){ msg = '내 공이에요. 다른 사람 공을 눌러보세요.'; }
+  else if(!present){ msg = `출석한 뒤에 ${esc(selected)}님에게 같이 쳐요를 보낼 수 있어요.`; }
+  else if(partnersOf(me).includes(selected)){ msg = `${esc(selected)}님과 같이 치는 중이에요 🤝`; }
+  else if(lastInvites.some(v => v.from===me && v.to===selected)){ msg = `${esc(selected)}님의 수락을 기다리는 중이에요.`; }
+  else if(lastInvites.some(v => v.from===selected && v.to===me)){ msg = `${esc(selected)}님이 먼저 같이 치자고 했어요.`; action = `<button class="btn-go" data-act="accept">수락</button>`; }
+  else { msg = `${esc(selected)}님에게 같이 치자고 할까요?`; action = `<button class="btn-go" data-act="invite">같이 쳐요</button>`; }
+  bar.innerHTML = `${orb}<p>${msg}</p>${action}<button class="btn-ghost" data-act="close" aria-label="닫기">닫기</button>`;
+  bar.hidden = false;
+}
+function selectBall(name){
+  selected = (selected === name) ? null : name;
+  document.querySelectorAll('#hereList .ball').forEach(b => b.classList.toggle('sel', b.dataset.name === selected));
+  renderPickbar();
+}
+$('hereList').addEventListener('click', e => { const b = e.target.closest('.ball'); if(b) selectBall(b.dataset.name); });
+$('hereList').addEventListener('keydown', e => {
+  const b = e.target.closest('.ball');
+  if(b && (e.key === 'Enter' || e.key === ' ')){ e.preventDefault(); selectBall(b.dataset.name); }
+});
+$('pickbar').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-act]'); if(!btn) return;
+  const act = btn.dataset.act, me = nameNow(), to = selected;
+  if(act === 'close'){ selectBall(selected); return; }
+  busy(btn, true, act === 'invite' ? '보내는 중…' : '수락 중…');
+  try{
+    if(act === 'invite'){
+      await publish(`${CONFIG.place} 같이 쳐요`, `${me}님이 ${to}님에게 같이 쳐요`, ['raised_hands']);
+      setStatus(`✓ ${to}님에게 같이 쳐요를 보냈어요`, 'ok');
+      offerKakao(`${to}님, 같이 한 게임 어때요? 🍀 (${me})`);
+    }else{
+      await publish(`${CONFIG.place} 같이 쳐요`, `${me}님이 ${to}님과 같이 쳐요 수락`, ['handshake']);
+      setStatus(`✓ ${to}님과 같이 치기로 했어요`, 'ok');
+      offerKakao(`${to}님이랑 ${me} 같이 칩니다 🍀`);
+    }
+    selected = null; renderPickbar();
+  }catch(err){ setStatus('보내지 못했어요. 잠시 후 다시 눌러주세요.','warn'); busy(btn, false); }
+});
 function renderPlans(plans){
   $('planCount').textContent = plans.length ? `${plans.length}명` : '';
   $('planList').innerHTML = plans.length ? plans.map(e =>
@@ -627,10 +764,11 @@ async function loadBoard(){
     const since = Math.floor(dayStart().getTime()/1000);
     const res = await fetch(`https://ntfy.sh/${encodeURIComponent(CONFIG.topic)}/json?poll=1&since=${since}`);
     if(!res.ok) throw new Error('http');
-    const {here, plans} = buildState(parseEvents(await res.text()));
-    renderHere(here); renderPlans(plans);
-    shown = new Set(here.map(e => e.name)); firstLoad = false;
-    lastHere = here; lastPlans = plans; refreshMe();
+    const st = buildState(parseEvents(await res.text()));
+    lastHere = st.here; lastPlans = st.plans; lastInvites = st.invites; lastPairs = st.pairs;
+    refreshMe();
+    renderHere(st.here); renderPlans(st.plans); renderInvites(); renderPickbar();
+    shown = new Set(st.here.map(e => e.name)); firstLoad = false;
     return true;
   }catch(e){
     $('cloth').classList.remove('many');
